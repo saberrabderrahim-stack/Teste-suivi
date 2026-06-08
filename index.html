@@ -944,79 +944,6 @@ function clearAllRecords(){
   renderTable();calculateStatistics();renderProgressBars();showToast('Effacé avec succès.','error');
 }
 
-// ════════════════════════════ QR CODE GENERATOR (self-contained) ════════════════════════════
-var _QRGen=(function(){
-  var GF_EXP=new Uint8Array(512),GF_LOG=new Uint8Array(256);
-  (function(){var x=1;for(var i=0;i<255;i++){GF_EXP[i]=x;GF_LOG[x]=i;x=x<128?x*2:x*2^0x11d;}for(var i=255;i<512;i++)GF_EXP[i]=GF_EXP[i-255];})();
-  function gfMul(a,b){return(a&&b)?GF_EXP[GF_LOG[a]+GF_LOG[b]]:0;}
-  function gfPoly(d){var p=[1];for(var i=0;i<d;i++){var t=[1,GF_EXP[i]],r=new Array(p.length+1).fill(0);for(var j=0;j<p.length;j++)for(var k=0;k<t.length;k++)r[j+k]^=gfMul(p[j],t[k]);p=r;}return p;}
-  function rsEncode(data,nEC){var gen=gfPoly(nEC),msg=data.concat(new Array(nEC).fill(0));for(var i=0;i<data.length;i++){var c=msg[i];if(c)for(var j=0;j<gen.length;j++)msg[i+j]^=gfMul(gen[j],c);}return msg.slice(data.length);}
-  var VER_TABLE=[[1,26,16,10,1],[2,44,28,16,1],[3,70,44,26,1],[4,100,64,18,2],[5,134,86,24,2],[6,172,108,16,4],[7,196,124,18,4],[8,242,154,22,2],[9,292,182,22,3],[10,346,216,26,4]];
-  var ALIGN=[[],[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,28,46]];
-  var FMT_M=["101010000010010","101000100100101","101111001111100","101101101001011","100010111111001","100000011001110","100111110010111","100101010100000"];
-  function setFinder(m,r,c,s){for(var dr=-1;dr<=7;dr++)for(var dc=-1;dc<=7;dc++){var rr=r+dr,cc=c+dc;if(rr<0||rr>=s||cc<0||cc>=s)continue;m[rr][cc]=(dr>=0&&dr<=6&&dc>=0&&dc<=6&&(dr==0||dr==6||dc==0||dc==6||(dr>=2&&dr<=4&&dc>=2&&dc<=4)))?1:0;}}
-  function encode(text){
-    var bytes=[];
-    for(var i=0;i<text.length;i++){var code=text.charCodeAt(i);if(code<128){bytes.push(code);}else{var enc=unescape(encodeURIComponent(text[i]));for(var j=0;j<enc.length;j++)bytes.push(enc.charCodeAt(j));}}
-    var len=bytes.length,ver=-1;
-    for(var v=0;v<VER_TABLE.length;v++){if(VER_TABLE[v][2]>=len+2){ver=v;break;}}
-    if(ver<0)ver=VER_TABLE.length-1;
-    var vt=VER_TABLE[ver],version=vt[0],dataCW=vt[2],ecCW=vt[3],blocks=vt[4];
-    var bits=[];
-    bits.push(0,1,0,0);
-    for(var i=7;i>=0;i--)bits.push((len>>i)&1);
-    for(var i=0;i<len;i++)for(var j=7;j>=0;j--)bits.push((bytes[i]>>j)&1);
-    for(var i=0;i<4&&bits.length<dataCW*8;i++)bits.push(0);
-    while(bits.length%8)bits.push(0);
-    var pad=[0xEC,0x11],pi=0;
-    while(bits.length<dataCW*8){for(var j=7;j>=0;j--)bits.push((pad[pi]>>j)&1);pi=(pi+1)%2;}
-    var cws=[];for(var i=0;i<dataCW;i++){var b=0;for(var j=0;j<8;j++)b=(b<<1)|bits[i*8+j];cws.push(b);}
-    var blockSize=Math.floor(dataCW/blocks),extra=dataCW%blocks,dataBlocks=[],ecBlocks=[],pos=0;
-    for(var b=0;b<blocks;b++){var blen=blockSize+(b<extra?1:0);var blk=cws.slice(pos,pos+blen);pos+=blen;dataBlocks.push(blk);ecBlocks.push(rsEncode(blk,ecCW));}
-    var finalCW=[],maxDB=dataBlocks.reduce(function(a,b){return Math.max(a,b.length);},0);
-    for(var i=0;i<maxDB;i++)for(var b=0;b<blocks;b++)if(i<dataBlocks[b].length)finalCW.push(dataBlocks[b][i]);
-    for(var i=0;i<ecCW;i++)for(var b=0;b<blocks;b++)finalCW.push(ecBlocks[b][i]);
-    var size=version*4+17;
-    var mat=[],res=[];for(var i=0;i<size;i++){mat.push(new Uint8Array(size));res.push(new Uint8Array(size));}
-    setFinder(mat,0,0,size);setFinder(mat,0,size-7,size);setFinder(mat,size-7,0,size);
-    for(var r=0;r<9;r++)for(var c=0;c<9;c++)res[r][c]=1;
-    for(var r=0;r<9;r++)for(var c=size-8;c<size;c++)res[r][c]=1;
-    for(var r=size-8;r<size;r++)for(var c=0;c<9;c++)res[r][c]=1;
-    for(var i=8;i<size-8;i++){mat[6][i]=(i%2==0)?1:0;mat[i][6]=(i%2==0)?1:0;res[6][i]=1;res[i][6]=1;}
-    mat[size-8][8]=1;res[size-8][8]=1;
-    var ap=ALIGN[version-1];
-    for(var ai=0;ai<ap.length;ai++)for(var aj=0;aj<ap.length;aj++){
-      var ar=ap[ai],ac=ap[aj];if(res[ar][ac])continue;
-      for(var dr=-2;dr<=2;dr++)for(var dc=-2;dc<=2;dc++){mat[ar+dr][ac+dc]=(dr==-2||dr==2||dc==-2||dc==2)?1:(dr==0&&dc==0)?1:0;res[ar+dr][ac+dc]=1;}
-    }
-    var s=size,idx=0,up=true;
-    for(var col=s-1;col>0;col-=2){
-      if(col==6)col--;
-      for(var row=0;row<s;row++){
-        var rr=up?s-1-row:row;
-        for(var dc=0;dc<2;dc++){var cc=col-dc;if(!res[rr][cc]){var bit=(idx<finalCW.length*8)?((finalCW[Math.floor(idx/8)]>>(7-(idx%8)))&1):0;idx++;mat[rr][cc]=bit;}}
-      }up=!up;
-    }
-    for(var r=0;r<s;r++)for(var c=0;c<s;c++){if(!res[r][c]&&(r+c)%2==0)mat[r][c]^=1;}
-    var fmtBits=FMT_M[0].split("").map(Number);
-    var fmtPos=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
-    for(var i=0;i<15;i++)mat[fmtPos[i][0]][fmtPos[i][1]]=fmtBits[i];
-    var fmtPos2=[[s-1,8],[s-2,8],[s-3,8],[s-4,8],[s-5,8],[s-6,8],[s-7,8],[8,s-8],[8,s-7],[8,s-6],[8,s-5],[8,s-4],[8,s-3],[8,s-2],[8,s-1]];
-    for(var i=0;i<15;i++)mat[fmtPos2[i][0]][fmtPos2[i][1]]=fmtBits[i];
-    return{matrix:mat,size:size};
-  }
-  return{toDataURL:function(text){
-    try{
-      var qr=encode(text);var s=qr.size,q=4,px=6,total=(s+q*2)*px;
-      var cv=document.createElement("canvas");cv.width=total;cv.height=total;
-      var ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,total,total);
-      ctx.fillStyle="#000";
-      for(var r=0;r<s;r++)for(var c=0;c<s;c++)if(qr.matrix[r][c])ctx.fillRect((c+q)*px,(r+q)*px,px,px);
-      return cv.toDataURL("image/png");
-    }catch(e){console.error("QRGen:",e);return null;}
-  }};
-})();
-
 // ════════════════════════════ PDF EXPORT ════════════════════════════
 function exportToPDF(){
   if(!records.length){alert('Aucune donnée à exporter !');return;}
@@ -1038,9 +965,45 @@ function exportToPDF(){
     '\nRaccordements: '+projectTargets.raccordements+' u';
 
   // Generate QR using self-contained generator (no external library needed)
-  var qrDataUrl = _QRGen.toDataURL(qrContent);
-  try{ _doPDF(qrDataUrl); }
-  catch(err){ console.error('PDF error:',err); showToast('Erreur PDF: '+err.message,'error'); }
+  // Fetch QR from reliable external API (runs in user's browser)
+  function fetchQR(text, callback){
+    var shortText = text.substring(0, 500);
+    var encoded = encodeURIComponent(shortText);
+    // Primary: qrserver.com
+    var url1 = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' + encoded;
+    // Fallback: Google Charts
+    var url2 = 'https://chart.googleapis.com/chart?chs=200x200&cht=qr&choe=UTF-8&chl=' + encoded;
+
+    function urlToDataURL(url, cb){
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function(){
+        try{
+          var canvas = document.createElement('canvas');
+          canvas.width = 200; canvas.height = 200;
+          canvas.getContext('2d').drawImage(img, 0, 0, 200, 200);
+          cb(canvas.toDataURL('image/png'));
+        } catch(e){ cb(null); }
+      };
+      img.onerror = function(){ cb(null); };
+      setTimeout(function(){ if(!img.complete) cb(null); }, 6000);
+      img.src = url;
+    }
+
+    urlToDataURL(url1, function(data){
+      if(data){ callback(data); return; }
+      // Try fallback
+      urlToDataURL(url2, function(data2){
+        callback(data2); // may be null, PDF will show empty box
+      });
+    });
+  }
+
+  showToast('Génération du PDF en cours...');
+  fetchQR(qrContent, function(qrDataUrl){
+    try{ _doPDF(qrDataUrl); }
+    catch(err){ console.error('PDF error:',err); showToast('Erreur PDF: '+err.message,'error'); }
+  });
 }
 
 function _doPDF(qrDataUrl){
