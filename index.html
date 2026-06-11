@@ -10,8 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" onerror="window._qrLibFailed=true"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --srm-blue: #2B7FC1;
@@ -48,7 +48,6 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
 .srm-btn-orange { background:linear-gradient(135deg,var(--srm-orange),var(--srm-orange-dark)); color:#fff; }
 .srm-btn-orange:hover { box-shadow:0 4px 14px rgba(232,130,62,0.35); }
 .srm-btn-danger { background:linear-gradient(135deg,#e53e3e,#c53030); color:#fff; }
-.srm-btn-purple { background:linear-gradient(135deg,#7c3aed,#5b21b6); color:#fff; }
 .srm-input { width:100%; padding:10px 14px; border:1.5px solid var(--srm-border); border-radius:8px; outline:none; transition:border-color .2s, box-shadow .2s; background:#f9fbfd; }
 .srm-input:focus { border-color:var(--srm-blue); box-shadow:0 0 0 3px rgba(43,127,193,0.12); background:#fff; }
 .section-header { background:linear-gradient(90deg,#f4f8fc,#fff); border-bottom:2px solid var(--srm-blue-light); }
@@ -156,6 +155,20 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
     </div>
   </header>
 
+  <!-- TAB NAV -->
+  <nav class="border-b sticky top-0 z-30 bg-white" style="border-color:var(--srm-border);top:72px;">
+    <div class="max-w-7xl mx-auto px-3 flex gap-0">
+      <button onclick="switchTab('tab-suivi')" id="nav-suivi" class="tab-nav-btn px-4 py-2.5 text-xs font-bold border-b-2 transition-colors" style="border-color:var(--srm-blue);color:var(--srm-blue);">
+        <i class="fa-solid fa-clipboard-list mr-1"></i>Suivi Journalier
+      </button>
+      <button onclick="switchTab('tab-multi')" id="nav-multi" class="tab-nav-btn px-4 py-2.5 text-xs font-bold border-b-2 transition-colors border-transparent text-gray-400 hover:text-gray-600">
+        <i class="fa-solid fa-chart-pie mr-1"></i>Consolidation Multi-Projets
+      </button>
+    </div>
+  </nav>
+
+  <!-- TAB: SUIVI JOURNALIER -->
+  <div id="tab-suivi">
   <main class="max-w-7xl mx-auto px-3 mt-4 pb-14 space-y-4">
 
     <!-- PROJECT NAME + IMPORT -->
@@ -181,69 +194,6 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
           <i class="fa-solid fa-cloud-upload-alt"></i> Charger le fichier de suivi (.xlsx)
         </button>
         <span id="import-status-msg" class="text-[11px] text-gray-400 mt-1.5 block font-semibold">Aucun fichier chargé</span>
-      </div>
-    </div>
-
-    <!-- NOUVEAU BOUTON : TABLEAU DE BORD MULTI-PROJETS -->
-    <div class="srm-card p-4">
-      <button onclick="toggleMultiProjectDashboard()" class="srm-btn-purple w-full justify-center py-3 text-base">
-        <i class="fa-solid fa-chart-simple"></i> 📊 ANALYSE MULTI-PROJETS (Comparaison Excel)
-      </button>
-      <p class="text-center text-[10px] text-gray-400 mt-2">Importez plusieurs fichiers Excel du suivi pour comparer automatiquement l'avancement des projets</p>
-    </div>
-
-    <!-- ═══ SECTION TABLEAU DE BORD MULTI-PROJETS (cachée par défaut) ═══ -->
-    <div id="multi-project-section" class="hidden space-y-4">
-      <div class="srm-card p-4">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <div>
-            <h3 class="text-base font-black" style="color:var(--srm-text)"><i class="fa-solid fa-chart-simple text-purple-600 mr-2"></i>Comparaison Multi-Projets</h3>
-            <p class="text-xs text-gray-400">Importez des fichiers Excel (exportés depuis cet outil) pour comparer automatiquement l'avancement.</p>
-          </div>
-          <div class="flex gap-2">
-            <input type="file" id="multi-excel-upload" accept=".xlsx,.xls" multiple onchange="handleMultiFileUpload(event)" class="hidden">
-            <button onclick="document.getElementById('multi-excel-upload').click()" class="srm-btn-purple text-sm py-2 px-4">
-              <i class="fa-solid fa-upload"></i> Ajouter fichiers
-            </button>
-            <button onclick="clearMultiProjects()" class="srm-btn-danger text-sm py-2 px-4">
-              <i class="fa-solid fa-trash"></i> Tout supprimer
-            </button>
-          </div>
-        </div>
-
-        <!-- Liste des projets chargés -->
-        <div id="multi-projects-list" class="flex flex-wrap gap-2 mb-4"></div>
-
-        <!-- Statistiques comparatives -->
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm border-collapse">
-            <thead>
-              <tr class="border-b" style="background:var(--srm-gray);border-color:var(--srm-border)">
-                <th class="p-2 text-left">Projet</th>
-                <th class="p-2 text-right">Réseau (m)</th>
-                <th class="p-2 text-right">Branchements (u)</th>
-                <th class="p-2 text-right">Remise État (m)</th>
-                <th class="p-2 text-right">Raccordements (u)</th>
-                <th class="p-2 text-right">Objectif Réseau (m)</th>
-                <th class="p-2 text-right">Taux Avancement</th>
-                <th class="p-2 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="multi-stats-table"></tbody>
-          </table>
-        </div>
-
-        <!-- Graphique et résumé -->
-        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="srm-card p-3">
-            <h4 class="text-sm font-bold mb-3 text-center">📊 Taux d'avancement global (%)</h4>
-            <canvas id="multi-progress-chart" width="400" height="300" style="max-height:300px; width:100%"></canvas>
-          </div>
-          <div class="srm-card p-3">
-            <h4 class="text-sm font-bold mb-3 text-center">📈 Synthèse comparative</h4>
-            <div id="multi-summary-text" class="text-xs text-gray-600 space-y-2"></div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -685,7 +635,7 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
               <th class="p-3">Quantité</th>
               <th class="p-3 hide-mobile">Obs.</th>
               <th class="p-3 text-center w-20">Actions</th>
-             </tr>
+            </tr>
           </thead>
           <tbody id="data-table-body" class="divide-y" style="divide-color:var(--srm-border)"></tbody>
         </table>
@@ -697,50 +647,142 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
     </div>
 
   </main>
-</div>
+  </div><!-- end tab-suivi -->
+
+  <!-- TAB: MULTI-PROJETS -->
+  <div id="tab-multi" class="hidden">
+  <div class="max-w-7xl mx-auto px-3 mt-4 pb-14">
+
+    <!-- UPLOAD ZONE -->
+    <div class="srm-card p-5 mb-4">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="section-header-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-layer-group"></i></span>
+        <div>
+          <h2 class="text-sm font-black uppercase tracking-wider" style="color:var(--srm-text)">Consolidation Multi-Projets</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Importez plusieurs fichiers Excel de suivi pour une vue consolidée avec graphiques comparatifs</p>
+        </div>
+      </div>
+      <div id="mp-dropzone" class="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors" style="border-color:var(--srm-border);background:var(--srm-gray);"
+           onclick="document.getElementById('mp-file-input').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--srm-blue)';this.style.background='var(--srm-blue-light)'"
+           ondragleave="this.style.borderColor='var(--srm-border)';this.style.background='var(--srm-gray)'"
+           ondrop="mpHandleDrop(event)">
+        <i class="fa-solid fa-cloud-arrow-up text-4xl mb-3" style="color:var(--srm-blue)"></i>
+        <p class="font-bold text-sm" style="color:var(--srm-text)">Glisser-déposer les fichiers Excel ici</p>
+        <p class="text-xs text-gray-400 mt-1">ou cliquer pour sélectionner</p>
+        <p class="text-xs mt-2 font-semibold" style="color:var(--srm-blue)">Formats acceptés : .xlsx .xls — exportés depuis cette application</p>
+        <input type="file" id="mp-file-input" multiple accept=".xlsx,.xls" class="hidden" onchange="mpLoadFiles(event)">
+      </div>
+      <div id="mp-files-list" class="mt-4 space-y-2 hidden">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-files mr-1" style="color:var(--srm-blue)"></i>Projets chargés</p>
+          <button onclick="mpClearAll()" class="text-xs text-red-500 hover:text-red-700 font-semibold"><i class="fa-solid fa-trash-can mr-1"></i>Tout effacer</button>
+        </div>
+        <div id="mp-files-container"></div>
+        <button onclick="mpAnalyze()" class="srm-btn-primary w-full justify-center py-3 text-sm mt-3" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">
+          <i class="fa-solid fa-chart-bar"></i> Lancer l'Analyse Consolidée
+        </button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="mp-results" class="hidden space-y-4">
+
+      <!-- KPI SUMMARY -->
+      <div class="srm-card p-4">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="section-header-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-gauge-high"></i></span>
+            <h3 class="text-sm font-black uppercase tracking-wider" style="color:var(--srm-text)">Synthèse Globale — Tous Projets</h3>
+          </div>
+          <button onclick="mpExportPDF()" class="srm-btn-primary text-xs py-2" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">
+            <i class="fa-regular fa-file-pdf"></i> Rapport PDF Consolidé
+          </button>
+        </div>
+        <div id="mp-kpi-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
+        <div id="mp-progress-bars" class="space-y-3"></div>
+      </div>
+
+      <!-- CHARTS ROW 1 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-bars-progress mr-1" style="color:var(--srm-blue)"></i>Avancement global par projet (%)</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-avancement"></canvas></div>
+        </div>
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-ruler-horizontal mr-1" style="color:var(--srm-blue)"></i>Réseau linéaire posé (m) par projet</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-reseau"></canvas></div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW 2 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-faucet mr-1" style="color:var(--srm-green)"></i>Branchements réalisés (u) par projet</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-branch"></canvas></div>
+        </div>
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-road mr-1" style="color:var(--srm-orange)"></i>Remise en état (m) par projet</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-remise"></canvas></div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW 3 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-chart-pie mr-1" style="color:var(--srm-blue)"></i>Répartition linéaire par diamètre (tous projets)</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-dn-donut"></canvas></div>
+        </div>
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-chart-line mr-1" style="color:var(--srm-blue)"></i>Production linéaire cumulée dans le temps</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-timeline"></canvas></div>
+        </div>
+      </div>
+
+      <!-- DETAILED TABLE -->
+      <div class="srm-card p-4">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="section-header-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-table-cells-large"></i></span>
+          <h3 class="text-sm font-black uppercase tracking-wider" style="color:var(--srm-text)">Tableau Détaillé par Projet</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border-collapse" id="mp-detail-table">
+            <thead>
+              <tr style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;">
+                <th class="p-2.5 text-left font-bold">Projet</th>
+                <th class="p-2.5 font-bold">Réseau (m)</th>
+                <th class="p-2.5 font-bold">Obj. Réseau</th>
+                <th class="p-2.5 font-bold">% Réseau</th>
+                <th class="p-2.5 font-bold">Branch. (u)</th>
+                <th class="p-2.5 font-bold">Obj. Branch.</th>
+                <th class="p-2.5 font-bold">% Branch.</th>
+                <th class="p-2.5 font-bold">Remise (m)</th>
+                <th class="p-2.5 font-bold">Racc. (u)</th>
+                <th class="p-2.5 font-bold">Vannes (u)</th>
+                <th class="p-2.5 font-bold">Avt. Global</th>
+                <th class="p-2.5 font-bold">Jours actifs</th>
+              </tr>
+            </thead>
+            <tbody id="mp-detail-tbody"></tbody>
+            <tfoot id="mp-detail-tfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /mp-results -->
+  </div>
+  </div><!-- end tab-multi -->
+
+</div><!-- end main-app -->
 
 <!-- TOAST -->
 <div id="toast" class="fixed bottom-5 right-5 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 text-sm font-semibold" style="background:var(--srm-text);color:#fff">
   <i id="toast-icon" class="fa-solid fa-circle-check text-green-400"></i><span id="toast-text">Succès !</span>
 </div>
 
-<!-- STATS PDF MODAL -->
-<div id="stats-pdf-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4" style="background:rgba(0,0,0,0.55);display:none!important;">
-  <div class="srm-card p-6 w-full max-w-md">
-    <div class="flex items-center justify-between mb-5">
-      <div class="flex items-center gap-2">
-        <span class="section-header-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-chart-column"></i></span>
-        <h3 class="font-black text-base" style="color:var(--srm-text)">Statistiques PDF — Période</h3>
-      </div>
-      <button onclick="closeStatsPdfModal()" class="text-gray-400 hover:text-red-500 transition-colors text-lg"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <p class="text-xs text-gray-500 mb-4">Sélectionnez la plage de dates pour extraire les statistiques cumulées de la période choisie.</p>
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div>
-        <label class="block text-xs font-bold mb-1.5 text-gray-600"><i class="fa-solid fa-calendar-day mr-1" style="color:var(--srm-blue)"></i>Date de début</label>
-        <input type="date" id="stats-date-from" class="srm-input text-sm">
-      </div>
-      <div>
-        <label class="block text-xs font-bold mb-1.5 text-gray-600"><i class="fa-solid fa-calendar-check mr-1" style="color:var(--srm-green)"></i>Date de fin</label>
-        <input type="date" id="stats-date-to" class="srm-input text-sm">
-      </div>
-    </div>
-    <div class="p-3 rounded-xl mb-4 text-xs" style="background:var(--srm-blue-light);border:1px solid #b8d9f0;color:var(--srm-blue)">
-      <i class="fa-solid fa-circle-info mr-1"></i>
-      Le PDF contiendra les cumuls, barres d'avancement et le registre journalier filtrés sur la période sélectionnée.
-    </div>
-    <div class="flex gap-3">
-      <button onclick="closeStatsPdfModal()" class="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold text-gray-600 border hover:bg-gray-50 transition-colors" style="border-color:var(--srm-border)">Annuler</button>
-      <button onclick="exportStatsPDF()" class="flex-1 srm-btn-primary text-sm py-2.5 justify-center" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">
-        <i class="fa-solid fa-file-pdf"></i> Générer PDF
-      </button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ════════════════════════════ LOGO BASE64 ════════════════════════════
-const LOGO_B64 = 'data:image/png;base64,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';
+const LOGO_B64 = 'data:image/png;base64,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';
 
 // ════════════════════════════ STATE ════════════════════════════
 let records = JSON.parse(localStorage.getItem('water_project_records')) || [];
@@ -749,9 +791,6 @@ let autoCapturedLocation = { text:"Non disponible", mapsUrl:"" };
 let loadedFileName = null;
 let currentUser = null;
 let projectTargets = { linearReseau:0, branchements:0, remiseEtat:0, raccordements:0 };
-
-// ═══ Multi-projets state ═══
-let multiProjectsData = []; // each element: { name, fileData, stats }
 
 const USERS = {
   "asaber":     { password:"Al@e16Lokmn23",  displayName:"A. SABER",     role:"Chargé d'Affaires" },
@@ -764,6 +803,7 @@ const sortedObs = [...rawObs].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'b
 sortedObs.push("Autre");
 
 window.addEventListener('DOMContentLoaded',()=>{
+  // Set logo
   document.getElementById('login-logo').src = LOGO_B64;
   document.getElementById('app-logo').src = LOGO_B64;
   const sv = localStorage.getItem('water_global_project_name')||'';
@@ -795,262 +835,6 @@ function handleLogout(){
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('password').value='';
   currentUser=null;
-}
-
-// ════════════════════════════ MULTI-PROJECTS ════════════════════════════
-let multiChart = null;
-
-function toggleMultiProjectDashboard() {
-  const section = document.getElementById('multi-project-section');
-  if (section.classList.contains('hidden')) {
-    section.classList.remove('hidden');
-    renderMultiProjectsTable();
-  } else {
-    section.classList.add('hidden');
-  }
-}
-
-function handleMultiFileUpload(event) {
-  const files = Array.from(event.target.files);
-  if (!files.length) return;
-  
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-        // Extract project name from file name or from data
-        let projectName = file.name.replace(/\.xlsx?$/i, '');
-        
-        // Try to get project name from sheet data (first row)
-        const sheets = wb.SheetNames;
-        if (sheets.length) {
-          const firstSheet = wb.Sheets[sheets[0]];
-          const data = XLSX.utils.sheet_to_json(firstSheet);
-          if (data.length && data[0]['Projet']) {
-            projectName = data[0]['Projet'];
-          }
-        }
-        
-        // Calculate stats from this workbook
-        const stats = calculateMultiProjectStats(wb);
-        
-        // Check if project already exists (by name)
-        const existingIndex = multiProjectsData.findIndex(p => p.name === projectName);
-        if (existingIndex !== -1) {
-          multiProjectsData[existingIndex] = { name: projectName, fileData: e.target.result, stats };
-        } else {
-          multiProjectsData.push({ name: projectName, fileData: e.target.result, stats });
-        }
-        
-        renderMultiProjectsTable();
-        showToast(`Projet "${projectName}" ajouté avec succès !`);
-      } catch(err) {
-        console.error(err);
-        showToast(`Erreur lors de la lecture de ${file.name}`, 'error');
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  });
-  event.target.value = '';
-}
-
-function calculateMultiProjectStats(wb) {
-  // Find main data sheet (Registre Général)
-  const sheetName = wb.SheetNames.find(s => s === 'Registre Général') || wb.SheetNames[0];
-  const data = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
-  
-  // Target objectives sheet
-  const targetSheet = wb.SheetNames.find(s => s.toLowerCase().includes('total à réaliser') || s.toLowerCase().includes('objectifs'));
-  let targets = { linearReseau: 0, branchements: 0, remiseEtat: 0, raccordements: 0 };
-  if (targetSheet) {
-    const targetData = XLSX.utils.sheet_to_json(wb.Sheets[targetSheet], { header: 1 });
-    if (targetData[1] && targetData[1][1]) targets.linearReseau = parseFloat(targetData[1][1]) || 0;
-    if (targetData[2] && targetData[2][1]) targets.branchements = parseFloat(targetData[2][1]) || 0;
-    if (targetData[3] && targetData[3][1]) targets.remiseEtat = parseFloat(targetData[3][1]) || 0;
-    if (targetData[4] && targetData[4][1]) targets.raccordements = parseFloat(targetData[4][1]) || 0;
-  }
-  
-  // Calculate aggregates
-  let reseauTotal = 0, branchTotal = 0, remiseTotal = 0, raccTotal = 0;
-  
-  for (const row of data) {
-    const category = row['Catégorie'] || '';
-    if (category === 'Réseau') {
-      const val = parseFloat(row['Valeur']) || 0;
-      reseauTotal += val;
-    } else if (category === 'Branchements') {
-      const valStr = row['Valeur'] || '';
-      const match = valStr.match(/(\d+)\s*u/);
-      if (match) branchTotal += parseInt(match[1]) || 0;
-    } else if (category === 'Remise en état') {
-      const val = parseFloat(row['Valeur']) || 0;
-      remiseTotal += val;
-    } else if (category === 'Mise en service') {
-      const det = row['Détails'] || '';
-      const r200Match = det.match(/<=200:\s*(\d+)/);
-      const r300Match = det.match(/<=300:\s*(\d+)/);
-      if (r200Match) raccTotal += parseInt(r200Match[1]) || 0;
-      if (r300Match) raccTotal += parseInt(r300Match[1]) || 0;
-    }
-  }
-  
-  const pctReseau = targets.linearReseau > 0 ? (reseauTotal / targets.linearReseau * 100) : 0;
-  const pctGlobal = targets.linearReseau > 0 ? pctReseau : 0; // Simplified global % based on main network
-  
-  return {
-    reseau: reseauTotal,
-    branch: branchTotal,
-    remise: remiseTotal,
-    racc: raccTotal,
-    targetReseau: targets.linearReseau,
-    pctReseau: pctReseau,
-    pctGlobal: pctGlobal
-  };
-}
-
-function renderMultiProjectsTable() {
-  const tbody = document.getElementById('multi-stats-table');
-  const listContainer = document.getElementById('multi-projects-list');
-  if (!tbody) return;
-  
-  tbody.innerHTML = '';
-  listContainer.innerHTML = '';
-  
-  if (!multiProjectsData.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-gray-400">Aucun projet chargé. Ajoutez des fichiers Excel.</td></tr>';
-    if (multiChart) multiChart.destroy();
-    document.getElementById('multi-summary-text').innerHTML = '<p class="text-gray-400">Ajoutez des projets pour voir la comparaison.</p>';
-    return;
-  }
-  
-  // Build list of chips
-  multiProjectsData.forEach((proj, idx) => {
-    const chip = document.createElement('span');
-    chip.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200';
-    chip.innerHTML = `${proj.name} <button onclick="removeMultiProject(${idx})" class="ml-1 text-purple-500 hover:text-red-500"><i class="fa-solid fa-times-circle"></i></button>`;
-    listContainer.appendChild(chip);
-  });
-  
-  // Build comparison table
-  let maxReseau = 0, maxBranch = 0, maxRemise = 0, maxRacc = 0, bestProject = '', bestPct = 0;
-  
-  multiProjectsData.forEach((proj, idx) => {
-    const s = proj.stats;
-    if (s.reseau > maxReseau) maxReseau = s.reseau;
-    if (s.branch > maxBranch) maxBranch = s.branch;
-    if (s.remise > maxRemise) maxRemise = s.remise;
-    if (s.racc > maxRacc) maxRacc = s.racc;
-    if (s.pctGlobal > bestPct) {
-      bestPct = s.pctGlobal;
-      bestProject = proj.name;
-    }
-    
-    const row = document.createElement('tr');
-    row.className = 'border-b hover:bg-gray-50';
-    row.innerHTML = `
-      <td class="p-2 font-bold">${proj.name}</td>
-      <td class="p-2 text-right font-mono">${s.reseau.toFixed(2)} m</td>
-      <td class="p-2 text-right font-mono">${s.branch} u</td>
-      <td class="p-2 text-right font-mono">${s.remise.toFixed(2)} m</td>
-      <td class="p-2 text-right font-mono">${s.racc} u</td>
-      <td class="p-2 text-right font-mono">${s.targetReseau > 0 ? s.targetReseau.toFixed(2) + ' m' : '—'}</td>
-      <td class="p-2 text-right">
-        <div class="flex items-center justify-end gap-2">
-          <span class="font-bold ${s.pctGlobal >= 75 ? 'text-green-600' : s.pctGlobal >= 50 ? 'text-orange-500' : 'text-red-500'}">${s.pctGlobal.toFixed(1)}%</span>
-          <div class="w-16 bg-gray-200 rounded-full h-2"><div class="rounded-full h-2" style="width: ${Math.min(100, s.pctGlobal)}%; background: linear-gradient(90deg, #7c3aed, #5b21b6);"></div></div>
-        </div>
-      </td>
-      <td class="p-2 text-center"><button onclick="removeMultiProject(${idx})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button></td>
-    `;
-    tbody.appendChild(row);
-  });
-  
-  // Summary text
-  const summaryDiv = document.getElementById('multi-summary-text');
-  summaryDiv.innerHTML = `
-    <div class="bg-green-50 p-3 rounded-lg">
-      <p class="font-bold text-green-700">🏆 Projet le plus avancé : <span class="text-green-800">${bestProject}</span> (${bestPct.toFixed(1)}%)</p>
-    </div>
-    <div class="bg-blue-50 p-3 rounded-lg">
-      <p class="font-bold text-blue-700">📊 Meilleures performances :</p>
-      <ul class="text-xs mt-1 space-y-1">
-        <li>🔹 Plus grand linéaire réseau : <strong>${maxReseau.toFixed(2)} m</strong></li>
-        <li>🔹 Plus grand nombre de branchements : <strong>${maxBranch} u</strong></li>
-        <li>🔹 Plus grande remise en état : <strong>${maxRemise.toFixed(2)} m</strong></li>
-        <li>🔹 Plus grand nombre de raccordements : <strong>${maxRacc} u</strong></li>
-      </ul>
-    </div>
-    <div class="text-xs text-gray-500 italic p-2">${multiProjectsData.length} projet(s) comparé(s)</div>
-  `;
-  
-  // Update chart
-  updateMultiChart();
-}
-
-function removeMultiProject(index) {
-  multiProjectsData.splice(index, 1);
-  renderMultiProjectsTable();
-  showToast('Projet supprimé de la comparaison');
-}
-
-function clearMultiProjects() {
-  if (multiProjectsData.length && confirm('Supprimer tous les projets de la comparaison ?')) {
-    multiProjectsData = [];
-    renderMultiProjectsTable();
-    showToast('Tous les projets ont été supprimés');
-  }
-}
-
-function updateMultiChart() {
-  const canvas = document.getElementById('multi-progress-chart');
-  if (!canvas) return;
-  
-  if (multiChart) multiChart.destroy();
-  
-  if (!multiProjectsData.length) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ccc';
-    ctx.font = '12px Cairo';
-    ctx.fillText('Aucune donnée à afficher', 20, 50);
-    return;
-  }
-  
-  const ctx = canvas.getContext('2d');
-  const labels = multiProjectsData.map(p => p.name.length > 15 ? p.name.substring(0,12)+'…' : p.name);
-  const data = multiProjectsData.map(p => p.stats.pctGlobal);
-  const colors = data.map((v, i) => {
-    if (v >= 75) return '#22c55e';
-    if (v >= 50) return '#f97316';
-    return '#ef4444';
-  });
-  
-  multiChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Taux d'avancement (%)",
-        data: data,
-        backgroundColor: colors,
-        borderRadius: 6,
-        borderSkipped: false,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'top', labels: { font: { size: 10, family: 'Cairo' } } },
-        tooltip: { callbacks: { label: (ctx) => `${ctx.raw.toFixed(1)}%` } }
-      },
-      scales: {
-        y: { beginAtZero: true, max: 100, title: { display: true, text: 'Pourcentage (%)', font: { size: 10 } } },
-        x: { ticks: { font: { size: 9 } } }
-      }
-    }
-  });
 }
 
 // ════════════════════════════ PHOTOS ════════════════════════════
@@ -1123,6 +907,7 @@ function importPreviousExcel(event){
       const targetSheet=wb.SheetNames.find(s=>s.toLowerCase().includes('total'));
       if(targetSheet){
         const ts=XLSX.utils.sheet_to_json(wb.Sheets[targetSheet],{header:1});
+        // Row 0 = header ["Objectif","Valeur Cible"], data starts at row 1 (B2=ts[1][1])
         projectTargets.linearReseau=parseFloat(ts[1]?ts[1][1]:0)||0;
         projectTargets.branchements=parseFloat(ts[2]?ts[2][1]:0)||0;
         projectTargets.remiseEtat=parseFloat(ts[3]?ts[3][1]:0)||0;
@@ -1137,9 +922,10 @@ function importPreviousExcel(event){
         document.getElementById('global-project-name').value=jd[0]['Projet'];
         localStorage.setItem('water_global_project_name',jd[0]['Projet']);
       }
+      // Auto-fill start date from earliest record dateStr
       const allDates=records.map(r=>r.dateStr).filter(Boolean).sort();
       if(allDates.length>0){
-        const earliest=allDates[0];
+        const earliest=allDates[0]; // format YYYY-MM-DD
         const sdField=document.getElementById('project-start-date');
         if(sdField&&!sdField.value) sdField.value=earliest;
       }
@@ -1224,12 +1010,14 @@ function buildWorkbook(){
   let sorted=[...records].sort((a,b)=>a.dateStr.localeCompare(b.dateStr));
   let seenDates={};
 
+  // SHEET 1: Registre Général
   const md=sorted.map(r=>{
     let tot='';if(!seenDates[r.dateStr]){tot=getDailyTotal(r.dateStr);seenDates[r.dateStr]=true;}
     return{'Horodatage':r.timestamp,'Saisie par':r.saisiePar||'','Projet':r.projet||'-','Catégorie':r.category,'Section / Tronçon':r.section,'Détails':r.details,'Valeur':r.category==='Branchements'?((r.br_dn32_qty||0)+(r.br_dn50_qty||0))+' u':r.distance,'Coordonnées GPS':r.gps||'','Observations':r.notes,'Total Journée':tot};
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(md),"Registre Général");
 
+  // SHEET 2: Résumé des Cumuls
   const c=getAggregatedCumuls();
   const rows=[
     ["RAPPORT CUMULÉ — RENOUVELLEMENT AEP"],[],
@@ -1253,6 +1041,7 @@ function buildWorkbook(){
   ];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Résumé des Cumuls");
 
+  // SHEET 3: Objectifs du Projet
   const tRows=[
     ["Objectif","Valeur Cible"],
     ["Linéaire total de réseau à poser (m)",projectTargets.linearReseau],
@@ -1262,6 +1051,7 @@ function buildWorkbook(){
   ];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(tRows),"total à réaliser");
 
+  // SHEET 4: Détails par Élément
   seenDates={};
   const detRows=sorted.map(r=>{
     let tot='';if(!seenDates[r.dateStr]){tot=getDailyTotal(r.dateStr);seenDates[r.dateStr]=true;}
@@ -1324,10 +1114,14 @@ function exportToPDF(){
     '\nRemise en etat: '+projectTargets.remiseEtat+' m / '+_tRem.toFixed(2)+' m ('+_pct(_tRem,projectTargets.remiseEtat)+')'+
     '\nRaccordements: '+projectTargets.raccordements+' u / '+_tRac+' u ('+_pct(_tRac,projectTargets.raccordements)+')';
 
+  // Generate QR using self-contained generator (no external library needed)
+  // Fetch QR from reliable external API (runs in user's browser)
   function fetchQR(text, callback){
     var shortText = text.substring(0, 500);
     var encoded = encodeURIComponent(shortText);
+    // Primary: qrserver.com
     var url1 = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' + encoded;
+    // Fallback: Google Charts
     var url2 = 'https://chart.googleapis.com/chart?chs=200x200&cht=qr&choe=UTF-8&chl=' + encoded;
 
     function urlToDataURL(url, cb){
@@ -1348,7 +1142,10 @@ function exportToPDF(){
 
     urlToDataURL(url1, function(data){
       if(data){ callback(data); return; }
-      urlToDataURL(url2, callback);
+      // Try fallback
+      urlToDataURL(url2, function(data2){
+        callback(data2); // may be null, PDF will show empty box
+      });
     });
   }
 
@@ -1366,16 +1163,18 @@ function _doPDF(qrDataUrl){
   const c=getAggregatedCumuls();
   const pW=doc.internal.pageSize.getWidth();
   const pH=doc.internal.pageSize.getHeight();
-  const B=[43,127,193];
-  const G=[77,176,91];
-  const O=[232,130,62];
+  const B=[43,127,193]; // SRM Blue
+  const G=[77,176,91];  // SRM Green
+  const O=[232,130,62]; // SRM Orange
   const DARK=[30,45,61];
-  const LB=[232,244,253];
-  const GR=[244,246,249];
+  const LB=[232,244,253]; // Light Blue
+  const GR=[244,246,249]; // Gray
 
+  // ── helpers ──
   function hdr(pageNum){
     doc.setFillColor(...B);doc.rect(0,0,pW,18,'F');
     try{ if(LOGO_B64) doc.addImage(LOGO_B64,'PNG',3,2,13,13); }catch(e){}
+    // Institutional text block (left of center)
     doc.setTextColor(255,255,255);
     doc.setFontSize(6);doc.setFont(undefined,'bold');
     doc.text('DIRECTION PRÉFECTORALE',20,5);
@@ -1383,8 +1182,10 @@ function _doPDF(qrDataUrl){
     doc.setFontSize(5.5);doc.setFont(undefined,'normal');
     doc.text('DÉPARTEMENT ÉTUDES ET TRAVAUX',20,12.5);
     doc.text('DIVISION EAU POTABLE',20,16);
+    // Project title centered
     doc.setFontSize(8.5);doc.setFont(undefined,'bold');
     doc.text(proj.toUpperCase(),pW/2,10,{align:'center'});
+    // QR code top-right
     if(qrDataUrl){
       try{ doc.addImage(qrDataUrl,'PNG',pW-18,1.5,14,14); }catch(e){}
     } else {
@@ -1400,8 +1201,10 @@ function _doPDF(qrDataUrl){
     doc.text(String(pageNum),pW/2,pH-3,{align:'center'});
   }
 
+  // ════ PAGE 1 ════
   hdr(1);
 
+  // Sous-titre
   doc.setFillColor(...LB);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setFontSize(8);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('RAPPORT GLOBAL CUMULÉ — RENOUVELLEMENT RÉSEAU AEP',pW/2,24.8,{align:'center'});
@@ -1426,34 +1229,41 @@ function _doPDF(qrDataUrl){
       alternateRowStyles:{fillColor:[247,251,255]},
       margin:{left:x,right:pW-x-w},
       tableWidth:w,
-      didDrawPage:function(){}
+      didDrawPage:function(){}  // prevent autoTable from adding its own headers
     });
     return doc.lastAutoTable.finalY+2.5;
   }
 
+  // ── Colonne Gauche ──
   let yL=Y;
+  // 1. Réseau
   yL=secBar(colL,yL,colW,'1. LINÉAIRES RÉSEAU PAR DIAMÈTRE',B);
   const totalReseau=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const rRows=Object.keys(c.reseau).map(d=>['DN '+d,c.reseau[d].toFixed(2)+' m']);
   rRows.push(['TOTAL',totalReseau.toFixed(2)+' m',(projectTargets.linearReseau>0?(totalReseau/projectTargets.linearReseau*100).toFixed(1)+'%':'—')]);
   yL=tbl(colL,yL,colW,['Diamètre','Linéaire','% Obj.'],rRows,B);
 
+  // 3. Remise
   yL=secBar(colL,yL,colW,'3. REMISE EN ÉTAT',O);
   const remR=Object.keys(c.remise).filter(t=>c.remise[t]>0).map(t=>[t,c.remise[t].toFixed(2)+' m']);
   if(!remR.length)remR.push(['—','0.00 m']);
   remR.push(['TOTAL',Object.values(c.remise).reduce((a,b)=>a+b,0).toFixed(2)+' m']);
   yL=tbl(colL,yL,colW,['Revêtement','Distance'],remR,O);
 
+  // 5. Vannes
   yL=secBar(colL,yL,colW,'5. VANNES',[60,110,160]);
   yL=tbl(colL,yL,colW,['Type','Qté'],[['Vanne <= 150',c.vannes.v150+' u'],['Vanne <= 300',c.vannes.v300+' u']],[60,110,160]);
 
+  // ── Colonne Droite ──
   let yR=Y;
+  // 2. Branchements
   yR=secBar(colR,yR,colW,'2. BRANCHEMENTS',G);
   yR=tbl(colR,yR,colW,['DN','Qté','Obj.','Avt.'],
     [['DN 32',c.branch.DN32+' u','—','—'],
      ['DN 50',c.branch.DN50+' u','—','—'],
      ['TOTAL',(c.branch.DN32+c.branch.DN50)+' u',projectTargets.branchements>0?projectTargets.branchements+'':'—',projectTargets.branchements>0?(((c.branch.DN32+c.branch.DN50)/projectTargets.branchements)*100).toFixed(0)+'%':'—']],G);
 
+  // 4. Mise en service
   yR=secBar(colR,yR,colW,'4. MISE EN SERVICE & RACCORDEMENTS',[99,60,180]);
   yR=tbl(colR,yR,colW,['Composant','Qté'],
     [['DN32 Jonctions',c.service.j32+' u'],['DN32 — 1 Cpt',c.service.c1_32+' u'],
@@ -1462,6 +1272,7 @@ function _doPDF(qrDataUrl){
      ['DN50 — 2 Cpt',c.service.c2_50+' u'],['DN50 — 3 Cpt',c.service.c3_50+' u'],
      ['Racc <= 200',c.raccordements.r200+' u'],['Racc <= 300',c.raccordements.r300+' u']],[99,60,180]);
 
+  // ── Avancement ──
   let Y2=Math.max(yL,yR)+3;
   const tL=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const tB=c.branch.DN32+c.branch.DN50;
@@ -1497,6 +1308,7 @@ function _doPDF(qrDataUrl){
     doc.setTextColor(...DARK);Y2+=13;
   });
 
+  // Barre globale
   const gc=gPct>=75?G:gPct>=50?O:[239,68,68];
   doc.setFontSize(7.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('AVANCEMENT GLOBAL',bX,Y2+4);
@@ -1506,6 +1318,7 @@ function _doPDF(qrDataUrl){
   if(gf>0){doc.setFillColor(...gc);doc.roundedRect(bX,Y2+6,gf,bH+1,2,2,'F');}
   Y2+=15;
 
+  // ── Signatures ──
   Y2=Math.max(Y2,244);
   const sY=Math.min(Y2,254);
   const bWs=83,bHs=30,sG=7,sX1=14,sX2=14+bWs+sG;
@@ -1527,6 +1340,7 @@ function _doPDF(qrDataUrl){
   sigBox(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
   ftr(1);
 
+  // ════ PAGE 2 — REGISTRE JOURNALIER ════
   doc.addPage();
   hdr(2);
 
@@ -1545,6 +1359,7 @@ function _doPDF(qrDataUrl){
       r.notes||'RAS',tot];
   });
 
+  let autoPageNum=2;
   doc.autoTable({
     head:[['Date / Heure','Saisie par','Catégorie','Section','Détails','Qté/Dist.','Obs.','Total Journée']],
     body:dRows,
@@ -1555,6 +1370,7 @@ function _doPDF(qrDataUrl){
     columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:18},3:{cellWidth:22},4:{cellWidth:34},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:25}},
     margin:{left:14,right:14},
     didDrawPage:function(data){
+      // Draw header on continuation pages only (page 2 of table onwards)
       if(doc.getNumberOfPages()>2){
         hdr(doc.getNumberOfPages());
       }
@@ -1562,6 +1378,7 @@ function _doPDF(qrDataUrl){
     }
   });
 
+  // ════ PAGE PHOTOS ════
   if(capturedPhotos.length>0){
     doc.addPage();
     hdr(doc.getNumberOfPages());
@@ -1792,6 +1609,7 @@ function openStatsPdfModal(){
   if(!records.length){showToast('Aucune donnée à exporter !','error');return;}
   const modal = document.getElementById('stats-pdf-modal');
   modal.style.display = 'flex';
+  // Auto-fill: min and max dates from records
   const dates = records.map(r=>r.dateStr).filter(Boolean).sort();
   if(dates.length){
     document.getElementById('stats-date-from').value = dates[0];
@@ -1802,6 +1620,7 @@ function closeStatsPdfModal(){
   document.getElementById('stats-pdf-modal').style.display = 'none';
 }
 
+// ════ FILTERED CUMULS (for a date range) ════
 function getFilteredCumuls(from, to){
   const filtered = records.filter(r => {
     if(!r.dateStr) return false;
@@ -1850,6 +1669,7 @@ function getDailyTotalFiltered(dateStr, filteredRecs){
   return parts.length>0?parts.join(' | '):'—';
 }
 
+// ════ EXPORT STATS PDF ════
 function exportStatsPDF(){
   const from = document.getElementById('stats-date-from').value;
   const to   = document.getElementById('stats-date-to').value;
@@ -1867,6 +1687,7 @@ function exportStatsPDF(){
   const dateStr = now.toLocaleDateString('fr-FR');
   const timeStr = now.toLocaleTimeString('fr-FR');
 
+  // Format date for display
   const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 
   const _tL=Object.values(c.reseau).reduce((a,b)=>a+b,0);
@@ -1886,6 +1707,7 @@ function exportStatsPDF(){
     '\nRemise: '+_tRem.toFixed(2)+' m ('+_pct(_tRem,projectTargets.remiseEtat)+')'+
     '\nRacc.: '+_tRac+' u ('+_pct(_tRac,projectTargets.raccordements)+')';
 
+  // Reuse fetchQR from exportToPDF scope — define inline
   function fetchQR(text, callback){
     var enc=encodeURIComponent(text.substring(0,500));
     var u1='https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data='+enc;
@@ -1921,8 +1743,10 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   }
   function ftr(n){doc.setTextColor(150,160,170);doc.setFontSize(8);doc.text(String(n),pW/2,pH-3,{align:'center'});}
 
+  // PAGE 1
   hdr();
 
+  // Title strip
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,8,2,2,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
   doc.text('RAPPORT STATISTIQUES — PÉRIODE : '+fmtDate(from)+' → '+fmtDate(to),pW/2,25.2,{align:'center'});
@@ -1930,6 +1754,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
 
   let Y=31;
 
+  // Info block
   doc.setFillColor(...GR);doc.roundedRect(14,Y,pW-28,6,1,1,'F');
   doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('INFORMATIONS',16,Y+4.2);doc.setTextColor(...DARK);Y+=8;
@@ -1942,6 +1767,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   });
   Y=doc.lastAutoTable.finalY+4;
 
+  // Two-column layout
   const colL=14, colR=110, colW=87;
   let yL=Y, yR=Y;
 
@@ -1955,6 +1781,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
     return doc.lastAutoTable.finalY+2.5;
   }
 
+  // Left: Réseau + Remise
   yL=secBar(colL,yL,colW,'1. LINÉAIRES RÉSEAU PAR DIAMÈTRE',B);
   const totalReseau=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const rRows=Object.keys(c.reseau).filter(d=>c.reseau[d]>0).map(d=>['DN '+d,c.reseau[d].toFixed(2)+' m']);
@@ -1971,6 +1798,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   yL=secBar(colL,yL,colW,'5. VANNES',[60,110,160]);
   yL=tbl(colL,yL,colW,['Type','Qté'],[['Vanne ≤ 150',c.vannes.v150+' u'],['Vanne ≤ 300',c.vannes.v300+' u']],[60,110,160]);
 
+  // Right: Branchements + Mise en service
   yR=secBar(colR,yR,colW,'2. BRANCHEMENTS',G);
   yR=tbl(colR,yR,colW,['DN','Qté','Obj.','Avt.'],
     [['DN 32',c.branch.DN32+' u','—','—'],
@@ -1985,6 +1813,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
      ['DN50 — 2 Cpt',c.service.c2_50+' u'],['DN50 — 3 Cpt',c.service.c3_50+' u'],
      ['Racc ≤ 200',c.raccordements.r200+' u'],['Racc ≤ 300',c.raccordements.r300+' u']],P);
 
+  // Progress bars
   let Y2=Math.max(yL,yR)+3;
   const pctV=(v,t)=>t>0?Math.min(100,v/t*100):0;
   const phases=[
@@ -2014,6 +1843,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
     doc.setTextColor(...DARK);Y2+=13;
   });
 
+  // Global bar
   const gc=gPct>=75?G:gPct>=50?O:[239,68,68];
   doc.setFontSize(7.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('AVANCEMENT GLOBAL PÉRIODE',bX,Y2+4);doc.text(gPct.toFixed(1)+'%',pW-14,Y2+4,{align:'right'});
@@ -2022,6 +1852,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   if(gf>0){doc.setFillColor(...gc);doc.roundedRect(bX,Y2+6,gf,bH+1,2,2,'F');}
   Y2+=15;
 
+  // Signatures
   const sY=Math.min(Math.max(Y2,242),254);
   const bWs=83, bHs=30, sG=7;
   function sigBox(x,y,title,sub){
@@ -2039,6 +1870,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   sigBox(14+bWs+sG,sY,'Représentant SRM-CS','Ingénieur responsable');
   ftr(1);
 
+  // PAGE 2 — Registre filtré
   doc.addPage(); hdr();
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
@@ -2069,6 +1901,569 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   doc.save(safeName+'_STATS_'+from+'_'+to+'.pdf');
   showToast('PDF Statistiques généré !');
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// MULTI-PROJECTS CONSOLIDATION MODULE
+// ════════════════════════════════════════════════════════════════
+
+let mpProjects = []; // Array of { name, records, targets }
+let mpCharts   = {}; // Chart.js instances (destroyed on re-render)
+
+// ── TAB SWITCHING ──
+function switchTab(tabId){
+  document.getElementById('tab-suivi').classList.toggle('hidden', tabId !== 'tab-suivi');
+  document.getElementById('tab-multi').classList.toggle('hidden', tabId !== 'tab-multi');
+  document.getElementById('nav-suivi').style.borderColor  = tabId === 'tab-suivi'  ? 'var(--srm-blue)' : 'transparent';
+  document.getElementById('nav-suivi').style.color        = tabId === 'tab-suivi'  ? 'var(--srm-blue)' : '#9ca3af';
+  document.getElementById('nav-multi').style.borderColor  = tabId === 'tab-multi'  ? '#7c3aed' : 'transparent';
+  document.getElementById('nav-multi').style.color        = tabId === 'tab-multi'  ? '#7c3aed' : '#9ca3af';
+}
+
+// ── FILE DROP / INPUT ──
+function mpHandleDrop(event){
+  event.preventDefault();
+  const dz = document.getElementById('mp-dropzone');
+  dz.style.borderColor = 'var(--srm-border)'; dz.style.background = 'var(--srm-gray)';
+  const files = Array.from(event.dataTransfer.files).filter(f => f.name.match(/\.xlsx?$/i));
+  if(files.length) mpProcessFiles(files);
+}
+
+function mpLoadFiles(event){
+  const files = Array.from(event.target.files);
+  if(files.length) mpProcessFiles(files);
+  event.target.value = '';
+}
+
+function mpProcessFiles(files){
+  let pending = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+
+        // Parse targets
+        const tgtSheet = wb.SheetNames.find(s => s.toLowerCase().includes('total'));
+        let targets = {linearReseau:0, branchements:0, remiseEtat:0, raccordements:0};
+        if(tgtSheet){
+          const ts = XLSX.utils.sheet_to_json(wb.Sheets[tgtSheet], {header:1});
+          targets.linearReseau  = parseFloat(ts[1]?ts[1][1]:0)||0;
+          targets.branchements  = parseFloat(ts[2]?ts[2][1]:0)||0;
+          targets.remiseEtat    = parseFloat(ts[3]?ts[3][1]:0)||0;
+          targets.raccordements = parseFloat(ts[4]?ts[4][1]:0)||0;
+        }
+
+        // Parse records
+        const sn = wb.SheetNames.includes("Registre Général") ? "Registre Général" : wb.SheetNames[0];
+        const jd = XLSX.utils.sheet_to_json(wb.Sheets[sn]);
+
+        const projName = (jd[0] && jd[0]['Projet']) ? jd[0]['Projet'] : file.name.replace(/\.xlsx?$/i,'');
+        const recs = jd.map((row,i) => parseRow(row, i));
+
+        // Check duplicate
+        const existingIdx = mpProjects.findIndex(p => p.name === projName);
+        if(existingIdx >= 0) mpProjects.splice(existingIdx, 1);
+
+        mpProjects.push({ name: projName, records: recs, targets, fileName: file.name });
+      } catch(err){ console.error('Error reading', file.name, err); showToast('Erreur lecture : '+file.name, 'error'); }
+      pending--;
+      if(pending === 0) mpRefreshFilesList();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function mpRefreshFilesList(){
+  const list = document.getElementById('mp-files-list');
+  const container = document.getElementById('mp-files-container');
+  list.classList.toggle('hidden', mpProjects.length === 0);
+  container.innerHTML = '';
+  mpProjects.forEach((proj, idx) => {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between p-2.5 rounded-xl border';
+    div.style.cssText = 'background:var(--srm-gray);border-color:var(--srm-border)';
+    div.innerHTML = `<div class="flex items-center gap-2 flex-1 min-w-0">
+      <i class="fa-solid fa-file-excel text-green-600 flex-shrink-0"></i>
+      <div class="min-w-0">
+        <p class="text-xs font-bold truncate" style="color:var(--srm-text)">${proj.name}</p>
+        <p class="text-[10px] text-gray-400">${proj.records.length} enregistrements — ${proj.fileName}</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <span class="text-[10px] px-2 py-0.5 rounded font-bold" style="background:var(--srm-blue-light);color:var(--srm-blue)">Obj. Réseau: ${proj.targets.linearReseau}m</span>
+      <button onclick="mpRemoveProject(${idx})" class="text-red-400 hover:text-red-600 text-xs p-1"><i class="fa-solid fa-xmark"></i></button>
+    </div>`;
+    container.appendChild(div);
+  });
+  showToast(mpProjects.length + ' projet(s) chargé(s)');
+}
+
+function mpRemoveProject(idx){
+  mpProjects.splice(idx, 1);
+  mpRefreshFilesList();
+}
+
+function mpClearAll(){
+  mpProjects = [];
+  mpRefreshFilesList();
+  document.getElementById('mp-results').classList.add('hidden');
+  Object.values(mpCharts).forEach(ch => { try{ ch.destroy(); }catch(e){} });
+  mpCharts = {};
+}
+
+// ── AGGREGATION HELPERS ──
+function mpGetCumuls(records){
+  const res = {75:0,90:0,110:0,160:0,225:0,315:0};
+  const branch = {DN32:0, DN50:0};
+  const remise = {};
+  const service = {j32:0,c1_32:0,c2_32:0,c3_32:0,j50:0,c1_50:0,c2_50:0,c3_50:0};
+  const racc = {r200:0, r300:0};
+  const vannes = {v150:0, v300:0};
+
+  records.forEach(r => {
+    if(r.category === 'Réseau'){
+      if(r.dn && res[r.dn] !== undefined) res[r.dn] += (r.distance||0);
+      vannes.v150 += (r.v150_qty||0); vannes.v300 += (r.v300_qty||0);
+    }
+    if(r.category === 'Branchements'){ branch.DN32 += (r.br_dn32_qty||0); branch.DN50 += (r.br_dn50_qty||0); }
+    if(r.category === 'Remise en état'){ const t = r.remise_type||'Autre'; remise[t] = (remise[t]||0) + (r.distance||0); }
+    if(r.category === 'Mise en service' && r.ms_data){
+      const m = r.ms_data;
+      service.j32+=m.j32||0; service.c1_32+=m.c1_32||0; service.c2_32+=m.c2_32||0; service.c3_32+=m.c3_32||0;
+      service.j50+=m.j50||0; service.c1_50+=m.c1_50||0; service.c2_50+=m.c2_50||0; service.c3_50+=m.c3_50||0;
+      racc.r200+=m.r200||0; racc.r300+=m.r300||0;
+    }
+  });
+  return { reseau:res, branch, remise, service, vannes, raccordements:racc };
+}
+
+function mpGetAvancement(cumuls, targets){
+  const tL = Object.values(cumuls.reseau).reduce((a,b)=>a+b,0);
+  const tB = cumuls.branch.DN32 + cumuls.branch.DN50;
+  const tRem = Object.values(cumuls.remise).reduce((a,b)=>a+b,0);
+  const tRac = cumuls.raccordements.r200 + cumuls.raccordements.r300;
+  const pct = (v,t) => t>0 ? Math.min(100, v/t*100) : null;
+  const vals = [pct(tL, targets.linearReseau), pct(tB, targets.branchements),
+                pct(tRem, targets.remiseEtat), pct(tRac, targets.raccordements)].filter(v => v !== null);
+  const global = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+  return { tL, tB, tRem, tRac, global, pctReseau:pct(tL,targets.linearReseau), pctBranch:pct(tB,targets.branchements) };
+}
+
+// ── MAIN ANALYZE ──
+function mpAnalyze(){
+  if(!mpProjects.length){ showToast('Aucun projet chargé !','error'); return; }
+
+  const results = mpProjects.map(p => ({
+    ...p,
+    cumuls: mpGetCumuls(p.records),
+    avt: null
+  }));
+  results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); });
+
+  document.getElementById('mp-results').classList.remove('hidden');
+
+  mpRenderKPI(results);
+  mpRenderProgressBars(results);
+  mpRenderCharts(results);
+  mpRenderTable(results);
+
+  document.getElementById('mp-results').scrollIntoView({behavior:'smooth'});
+}
+
+// ── KPI ──
+function mpRenderKPI(results){
+  const totalL = results.reduce((s,r)=>s+r.avt.tL,0);
+  const totalB = results.reduce((s,r)=>s+r.avt.tB,0);
+  const totalRem = results.reduce((s,r)=>s+r.avt.tRem,0);
+  const totalRac = results.reduce((s,r)=>s+r.avt.tRac,0);
+  const avgGlobal = results.reduce((s,r)=>s+r.avt.global,0)/results.length;
+
+  const kpis = [
+    {label:'Réseau total posé', val: totalL.toFixed(1)+' m', icon:'fa-pipe', col:'var(--srm-blue)'},
+    {label:'Branchements total', val: totalB+' u', icon:'fa-faucet', col:'var(--srm-green)'},
+    {label:'Remise en état total', val: totalRem.toFixed(1)+' m', icon:'fa-road', col:'var(--srm-orange)'},
+    {label:'Avancement moyen global', val: avgGlobal.toFixed(1)+'%', icon:'fa-gauge-high', col:'#7c3aed'},
+  ];
+
+  document.getElementById('mp-kpi-grid').innerHTML = kpis.map(k => `
+    <div class="p-3 rounded-xl border text-center" style="background:${k.col}10;border-color:${k.col}40">
+      <i class="fa-solid ${k.icon} text-lg mb-1" style="color:${k.col}"></i>
+      <p class="text-xl font-black" style="color:${k.col}">${k.val}</p>
+      <p class="text-[10px] font-semibold text-gray-500 mt-0.5">${k.label}</p>
+      <p class="text-[9px] text-gray-400">${results.length} projet(s)</p>
+    </div>`).join('');
+}
+
+// ── PROGRESS BARS ──
+function mpRenderProgressBars(results){
+  const container = document.getElementById('mp-progress-bars');
+  container.innerHTML = '<p class="text-[10px] font-bold uppercase tracking-wider mb-2" style="color:var(--srm-text)"><i class="fa-solid fa-tasks mr-1" style="color:#7c3aed"></i>Avancement par projet</p>';
+  results.forEach(r => {
+    const g = r.avt.global;
+    const col = g>=75?'var(--srm-green)':g>=50?'var(--srm-orange)':'#ef4444';
+    container.innerHTML += `<div class="mb-2">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-xs font-bold text-gray-700">${r.name}</span>
+        <span class="text-xs font-black" style="color:${col}">${g.toFixed(1)}%</span>
+      </div>
+      <div class="progress-bar-bg" style="height:10px;">
+        <div class="progress-bar-fill" style="width:${g}%;background:${col};height:10px;"></div>
+      </div>
+    </div>`;
+  });
+}
+
+// ── CHARTS ──
+function mpDestroyChart(id){
+  if(mpCharts[id]){ try{mpCharts[id].destroy();}catch(e){} delete mpCharts[id]; }
+}
+
+const MP_COLORS = ['#2B7FC1','#4DB05B','#E8823E','#7c3aed','#0891b2','#be185d','#d97706','#059669'];
+
+function mpRenderCharts(results){
+  const labels = results.map(r => r.name.length > 15 ? r.name.substring(0,15)+'…' : r.name);
+  const colors = labels.map((_,i) => MP_COLORS[i % MP_COLORS.length]);
+
+  // 1. Avancement (horizontal bar)
+  mpDestroyChart('avancement');
+  mpCharts['avancement'] = new Chart(document.getElementById('chart-avancement'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Avancement (%)',data:results.map(r=>r.avt.global.toFixed(1)),backgroundColor:colors,borderRadius:6},
+        {label:'Objectif (100%)',data:results.map(()=>100),backgroundColor:'rgba(0,0,0,0.05)',borderRadius:6}
+      ]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+'%'}}},scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%'}},y:{ticks:{font:{size:10}}}}}
+  });
+
+  // 2. Réseau linéaire
+  mpDestroyChart('reseau');
+  mpCharts['reseau'] = new Chart(document.getElementById('chart-reseau'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Réalisé (m)',data:results.map(r=>r.avt.tL.toFixed(1)),backgroundColor:colors,borderRadius:6},
+        {label:'Objectif (m)',data:results.map(r=>r.targets.linearReseau),backgroundColor:'rgba(43,127,193,0.15)',borderRadius:6,borderColor:'rgba(43,127,193,0.5)',borderWidth:1}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9}}}},scales:{y:{ticks:{font:{size:10}}}}}
+  });
+
+  // 3. Branchements
+  mpDestroyChart('branch');
+  mpCharts['branch'] = new Chart(document.getElementById('chart-branch'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'DN 32',data:results.map(r=>r.cumuls.branch.DN32),backgroundColor:'rgba(77,176,91,0.7)',borderRadius:4},
+        {label:'DN 50',data:results.map(r=>r.cumuls.branch.DN50),backgroundColor:'rgba(77,176,91,0.35)',borderRadius:4},
+        {label:'Objectif',data:results.map(r=>r.targets.branchements),backgroundColor:'rgba(0,0,0,0.06)',borderRadius:4,borderColor:'rgba(77,176,91,0.5)',borderWidth:1}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9}}}},scales:{y:{stacked:false,ticks:{font:{size:10}}}}}
+  });
+
+  // 4. Remise en état
+  mpDestroyChart('remise');
+  mpCharts['remise'] = new Chart(document.getElementById('chart-remise'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{label:'Remise en état (m)',data:results.map(r=>r.avt.tRem.toFixed(1)),backgroundColor:colors.map(c=>c+'bb'),borderRadius:6}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{font:{size:10}}}}}
+  });
+
+  // 5. DN distribution donut
+  const dnLabels = ['DN 75','DN 90','DN 110','DN 160','DN 225','DN 315'];
+  const dnTotals = ['75','90','110','160','225','315'].map(dn => results.reduce((s,r)=>s+(r.cumuls.reseau[dn]||0),0));
+  mpDestroyChart('dn-donut');
+  mpCharts['dn-donut'] = new Chart(document.getElementById('chart-dn-donut'), {
+    type:'doughnut',
+    data:{labels:dnLabels,datasets:[{data:dnTotals,backgroundColor:['#2B7FC1','#4DB05B','#E8823E','#7c3aed','#0891b2','#be185d'],hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}}}}
+  });
+
+  // 6. Timeline — cumulative production per project
+  mpDestroyChart('timeline');
+  const allDates = [...new Set(results.flatMap(r=>r.records.map(rec=>rec.dateStr)).filter(Boolean))].sort();
+  const timelineDatasets = results.map((proj,i) => {
+    let cum = 0;
+    const data = allDates.map(d => {
+      const dayRec = proj.records.filter(r=>r.dateStr===d&&r.category==='Réseau');
+      cum += dayRec.reduce((s,r)=>s+(r.distance||0),0);
+      return cum.toFixed(1);
+    });
+    return {label:proj.name,data,borderColor:MP_COLORS[i%MP_COLORS.length],backgroundColor:'transparent',tension:0.3,fill:false,pointRadius:2};
+  });
+  mpCharts['timeline'] = new Chart(document.getElementById('chart-timeline'), {
+    type:'line',
+    data:{labels:allDates,datasets:timelineDatasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}}},y:{ticks:{font:{size:9}}}}}
+  });
+}
+
+// ── DETAIL TABLE ──
+function mpRenderTable(results){
+  const tbody = document.getElementById('mp-detail-tbody');
+  const tfoot = document.getElementById('mp-detail-tfoot');
+  const pct = (v,t) => t>0 ? Math.min(100,v/t*100).toFixed(0)+'%' : '—';
+  const colPct = p => parseFloat(p)>=75?'color:#16a34a':parseFloat(p)>=50?'color:#d97706':'color:#ef4444';
+  const activeDays = recs => new Set(recs.map(r=>r.dateStr).filter(Boolean)).size;
+
+  tbody.innerHTML = results.map((r,i) => {
+    const bg = i%2===0?'':'background:#f7f9ff';
+    const g = r.avt.global.toFixed(1)+'%';
+    const pR = pct(r.avt.tL, r.targets.linearReseau);
+    const pB = pct(r.avt.tB, r.targets.branchements);
+    const van = r.cumuls.vannes.v150+r.cumuls.vannes.v300;
+    return `<tr style="${bg}">
+      <td class="p-2 font-bold text-xs" style="color:var(--srm-text)">${r.name}</td>
+      <td class="p-2 text-center font-mono-custom font-bold" style="color:var(--srm-blue)">${r.avt.tL.toFixed(2)}</td>
+      <td class="p-2 text-center text-gray-500">${r.targets.linearReseau}</td>
+      <td class="p-2 text-center font-bold" style="${colPct(pR)}">${pR}</td>
+      <td class="p-2 text-center font-mono-custom font-bold" style="color:var(--srm-green)">${r.avt.tB}</td>
+      <td class="p-2 text-center text-gray-500">${r.targets.branchements}</td>
+      <td class="p-2 text-center font-bold" style="${colPct(pB)}">${pB}</td>
+      <td class="p-2 text-center">${r.avt.tRem.toFixed(2)}</td>
+      <td class="p-2 text-center">${r.avt.tRac}</td>
+      <td class="p-2 text-center">${van}</td>
+      <td class="p-2 text-center font-black" style="${colPct(g)}">${g}</td>
+      <td class="p-2 text-center">${activeDays(r.records)}</td>
+    </tr>`;
+  }).join('');
+
+  // Total row
+  const totL = results.reduce((s,r)=>s+r.avt.tL,0);
+  const totB = results.reduce((s,r)=>s+r.avt.tB,0);
+  const totRem = results.reduce((s,r)=>s+r.avt.tRem,0);
+  const totRac = results.reduce((s,r)=>s+r.avt.tRac,0);
+  const totVan = results.reduce((s,r)=>s+r.cumuls.vannes.v150+r.cumuls.vannes.v300,0);
+  const avgAvt = (results.reduce((s,r)=>s+r.avt.global,0)/results.length).toFixed(1)+'%';
+  tfoot.innerHTML = `<tr style="background:linear-gradient(90deg,#ede9fe,#f5f3ff);font-weight:900;">
+    <td class="p-2 text-xs" style="color:#7c3aed">TOTAL / MOYENNE (${results.length} projets)</td>
+    <td class="p-2 text-center" style="color:var(--srm-blue)">${totL.toFixed(2)}</td>
+    <td class="p-2 text-center text-gray-400">${results.reduce((s,r)=>s+r.targets.linearReseau,0)}</td>
+    <td class="p-2 text-center">—</td>
+    <td class="p-2 text-center" style="color:var(--srm-green)">${totB}</td>
+    <td class="p-2 text-center text-gray-400">${results.reduce((s,r)=>s+r.targets.branchements,0)}</td>
+    <td class="p-2 text-center">—</td>
+    <td class="p-2 text-center">${totRem.toFixed(2)}</td>
+    <td class="p-2 text-center">${totRac}</td>
+    <td class="p-2 text-center">${totVan}</td>
+    <td class="p-2 text-center" style="color:#7c3aed">${avgAvt}</td>
+    <td class="p-2 text-center">${results.reduce((s,r)=>s+new Set(r.records.map(rec=>rec.dateStr).filter(Boolean)).size,0)}</td>
+  </tr>`;
+}
+
+// ── EXPORT PDF ──
+function mpExportPDF(){
+  if(!mpProjects.length){ showToast('Aucun projet à exporter !','error'); return; }
+  const results = mpProjects.map(p => ({...p, cumuls:mpGetCumuls(p.records), avt:null}));
+  results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); });
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('fr-FR');
+  const timeStr = now.toLocaleTimeString('fr-FR');
+  const uname = currentUser ? (USERS[currentUser]?.displayName||currentUser) : '—';
+
+  const qrText = 'Consolidation Multi-Projets\nÉtabli par: '+uname+'\nExport: '+dateStr+' '+timeStr+
+    '\nNombre de projets: '+results.length+
+    '\nTotal réseau: '+results.reduce((s,r)=>s+r.avt.tL,0).toFixed(2)+' m'+
+    '\nTotal branchements: '+results.reduce((s,r)=>s+r.avt.tB,0)+' u';
+
+  function fetchQR(text,cb){
+    var enc=encodeURIComponent(text.substring(0,400));
+    function tryU(url,nxt){var img=new Image();img.crossOrigin='anonymous';img.onload=function(){try{var cv=document.createElement('canvas');cv.width=200;cv.height=200;cv.getContext('2d').drawImage(img,0,0,200,200);cb(cv.toDataURL('image/png'));}catch(e){nxt();}};img.onerror=nxt;setTimeout(nxt,5000);img.src=url;}
+    tryU('https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data='+enc,function(){tryU('https://chart.googleapis.com/chart?chs=200x200&cht=qr&choe=UTF-8&chl='+enc,function(){cb(null);});});
+  }
+
+  showToast('Génération PDF Consolidation...');
+  fetchQR(qrText, function(qrDU){ _mpDoPDF(qrDU, results, uname, dateStr, timeStr); });
+}
+
+function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF('l','mm','a4');
+  const pW = doc.internal.pageSize.getWidth(), pH = doc.internal.pageSize.getHeight();
+  const PU=[124,58,237], B=[43,127,193], G=[77,176,91], O=[232,130,62], DK=[30,45,61], LB=[232,244,253], GR=[244,246,249];
+
+  function hdr(){
+    doc.setFillColor(PU[0],PU[1],PU[2]); doc.rect(0,0,pW,18,'F');
+    try{ if(LOGO_B64) doc.addImage(LOGO_B64,'PNG',3,2,13,13); }catch(e){}
+    doc.setTextColor(255,255,255); doc.setFontSize(6); doc.setFont(undefined,'bold');
+    doc.text('DIRECTION PRÉFECTORALE AIN CHOCK HAY HASSANI',20,6);
+    doc.setFont(undefined,'normal'); doc.setFontSize(5.5);
+    doc.text('DÉPARTEMENT ÉTUDES ET TRAVAUX — DIVISION EAU POTABLE',20,10.5);
+    doc.setFont(undefined,'bold'); doc.setFontSize(9);
+    doc.text('RAPPORT DE CONSOLIDATION MULTI-PROJETS',pW/2,11,{align:'center'});
+    if(qrDU){ try{doc.addImage(qrDU,'PNG',pW-18,1.5,14,14);}catch(e){} }
+    doc.setTextColor(DK[0],DK[1],DK[2]);
+  }
+  function ftr(n){ doc.setTextColor(150,160,170); doc.setFontSize(7); doc.text('Page '+n+' — '+dateStr+' '+timeStr, pW/2, pH-3, {align:'center'}); }
+
+  hdr();
+
+  // Title strip
+  doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,20,pW-28,8,2,2,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont(undefined,'bold');
+  doc.text('TABLEAU DE BORD CONSOLIDÉ — '+results.length+' PROJETS AEP',pW/2,25.2,{align:'center'});
+  doc.setTextColor(DK[0],DK[1],DK[2]);
+  let Y = 31;
+
+  // Info
+  doc.setFillColor(GR[0],GR[1],GR[2]); doc.roundedRect(14,Y,pW-28,6,1,1,'F');
+  doc.setFontSize(7); doc.setFont(undefined,'bold'); doc.setTextColor(PU[0],PU[1],PU[2]);
+  doc.text('INFORMATIONS',16,Y+4.2); doc.setTextColor(DK[0],DK[1],DK[2]); Y+=8;
+
+  doc.autoTable({head:[],body:[
+    ['Établi par :',uname,'Date export :',dateStr+' '+timeStr],
+    ['Nombre de projets :',String(results.length),'Projets :',results.map(r=>r.name).join(', ').substring(0,80)]
+  ],startY:Y,styles:{fontSize:7,cellPadding:1.4},columnStyles:{0:{fontStyle:'bold',textColor:PU,cellWidth:30},1:{cellWidth:80},2:{fontStyle:'bold',textColor:PU,cellWidth:30},3:{cellWidth:'auto'}},margin:{left:14,right:14},tableWidth:pW-28});
+  Y = doc.lastAutoTable.finalY+4;
+
+  // KPIs
+  const totL = results.reduce((s,r)=>s+r.avt.tL,0);
+  const totB = results.reduce((s,r)=>s+r.avt.tB,0);
+  const totRem = results.reduce((s,r)=>s+r.avt.tRem,0);
+  const totRac = results.reduce((s,r)=>s+r.avt.tRac,0);
+  const avgAvt = results.reduce((s,r)=>s+r.avt.global,0)/results.length;
+
+  doc.autoTable({head:[['Réseau Total (m)','Branchements Total (u)','Remise Total (m)','Raccordements Total (u)','Avancement Moyen']],
+    body:[[totL.toFixed(2),totB,totRem.toFixed(2),totRac,avgAvt.toFixed(1)+'%']],
+    startY:Y,styles:{fontSize:8,cellPadding:3,halign:'center',fontStyle:'bold'},
+    headStyles:{fillColor:PU,textColor:[255,255,255],fontSize:7},
+    bodyStyles:{fillColor:[245,243,255],textColor:PU},
+    margin:{left:14,right:14},tableWidth:pW-28});
+  Y = doc.lastAutoTable.finalY+4;
+
+  // Per-project table
+  doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,Y,pW-28,6,1,1,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont(undefined,'bold');
+  doc.text('DÉTAIL PAR PROJET',16,Y+4.2); Y+=8;
+
+  const pct=(v,t)=>t>0?Math.min(100,v/t*100).toFixed(0)+'%':'—';
+  const tableBody = results.map(r => [
+    r.name.substring(0,25),
+    r.avt.tL.toFixed(2),String(r.targets.linearReseau),pct(r.avt.tL,r.targets.linearReseau),
+    String(r.avt.tB),String(r.targets.branchements),pct(r.avt.tB,r.targets.branchements),
+    r.avt.tRem.toFixed(2),String(r.avt.tRac),
+    String(r.cumuls.vannes.v150+r.cumuls.vannes.v300),
+    r.avt.global.toFixed(1)+'%',
+    String(new Set(r.records.map(rec=>rec.dateStr).filter(Boolean)).size)
+  ]);
+
+  doc.autoTable({
+    head:[['Projet','Réseau(m)','Obj.R','%R','Branch.','Obj.B','%B','Remise(m)','Racc.','Vannes','Avt.%','Jours']],
+    body:tableBody,startY:Y,
+    styles:{fontSize:6.5,cellPadding:1.8},
+    headStyles:{fillColor:PU,textColor:[255,255,255],fontStyle:'bold',fontSize:7},
+    alternateRowStyles:{fillColor:[247,251,255]},
+    columnStyles:{0:{cellWidth:'auto',halign:'left'},1:{halign:'center'},2:{halign:'center'},3:{halign:'center',fontStyle:'bold'},4:{halign:'center'},5:{halign:'center'},6:{halign:'center',fontStyle:'bold'},7:{halign:'center'},8:{halign:'center'},9:{halign:'center'},10:{halign:'center',fontStyle:'bold',textColor:PU},11:{halign:'center'}},
+    margin:{left:14,right:14},tableWidth:pW-28,
+    didParseCell:function(d){
+      if(d.column.index===3||d.column.index===6||d.column.index===10){
+        const v=parseFloat(d.cell.raw);
+        if(v>=75)d.cell.styles.textColor=[22,163,74];
+        else if(v>=50)d.cell.styles.textColor=[217,119,6];
+        else if(!isNaN(v))d.cell.styles.textColor=[239,68,68];
+      }
+    }
+  });
+
+  ftr(1);
+
+  // PAGE 2 — Progress bars per project
+  doc.addPage(); hdr();
+  doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,20,pW-28,7,2,2,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
+  doc.text('AVANCEMENT PAR PROJET ET PAR PHASE',pW/2,24.8,{align:'center'});
+  doc.setTextColor(DK[0],DK[1],DK[2]);
+  Y=30;
+
+  const phaseColors = [B, G, O, [99,60,180]];
+  const phaseNames  = ['Réseau Linéaire','Branchements','Remise en État','Raccordements'];
+  const colW = (pW-28)/2 - 5;
+
+  results.forEach((r,pi) => {
+    const col  = pi%2===0 ? 14 : 14+colW+10;
+    const rowY = pi%2===0 ? Y : Y;
+    if(pi>0&&pi%2===0) Y+=60;
+
+    doc.setFillColor(...GR); doc.roundedRect(col,Y,colW,6,1,1,'F');
+    doc.setFontSize(7.5); doc.setFont(undefined,'bold'); doc.setTextColor(DK[0],DK[1],DK[2]);
+    doc.text(r.name.substring(0,30),col+2,Y+4.2);
+    doc.setFontSize(7); doc.setTextColor(PU[0],PU[1],PU[2]);
+    doc.text(r.avt.global.toFixed(1)+'%',col+colW-2,Y+4.2,{align:'right'});
+    let phY = Y+7;
+
+    const phases=[
+      {v:r.avt.tL,t:r.targets.linearReseau,n:'Réseau',u:'m',c:B},
+      {v:r.avt.tB,t:r.targets.branchements,n:'Branch.',u:'u',c:G},
+      {v:r.avt.tRem,t:r.targets.remiseEtat,n:'Remise',u:'m',c:O},
+      {v:r.avt.tRac,t:r.targets.raccordements,n:'Raccords',u:'u',c:PU}
+    ];
+    phases.forEach(ph => {
+      const p = ph.t>0 ? Math.min(100,ph.v/ph.t*100) : 0;
+      doc.setFontSize(6.5); doc.setFont(undefined,'bold'); doc.setTextColor(60,70,80);
+      doc.text(ph.n,col,phY+3);
+      doc.setFont(undefined,'normal'); doc.setTextColor(130,140,150);
+      doc.text((typeof ph.v==='number'?(ph.v%1?ph.v.toFixed(1):ph.v):ph.v)+ph.u+' / '+ph.t+ph.u,col+colW,phY+3,{align:'right'});
+      doc.setFillColor(215,225,238); doc.roundedRect(col,phY+4,colW,4,1,1,'F');
+      const filled = p/100*colW;
+      if(filled>0){ doc.setFillColor(ph.c[0],ph.c[1],ph.c[2]); doc.roundedRect(col,phY+4,filled,4,1,1,'F'); }
+      const pc=p>=75?[22,163,74]:p>=50?[217,119,6]:[239,68,68];
+      if(filled>8){ doc.setFontSize(5.5); doc.setFont(undefined,'bold'); doc.setTextColor(pc[0],pc[1],pc[2]); doc.text(p.toFixed(0)+'%',col+filled/2,phY+7.5,{align:'center'}); }
+      phY+=12;
+    });
+    if(pi%2===1) Y+=60;
+  });
+
+  ftr(2);
+  doc.save('CONSOLIDATION_MULTI_PROJETS_'+dateStr.replace(/\//g,'-')+'.pdf');
+  showToast('Rapport PDF Consolidation exporté !');
+}
+
 </script>
+
+<!-- ═══ STATS PDF MODAL ═══ -->
+<div id="stats-pdf-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4" style="background:rgba(0,0,0,0.55);display:none!important;">
+  <div class="srm-card p-6 w-full max-w-md">
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-2">
+        <span class="section-header-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-chart-column"></i></span>
+        <h3 class="font-black text-base" style="color:var(--srm-text)">Statistiques PDF — Période</h3>
+      </div>
+      <button onclick="closeStatsPdfModal()" class="text-gray-400 hover:text-red-500 transition-colors text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p class="text-xs text-gray-500 mb-4">Sélectionnez la plage de dates pour extraire les statistiques cumulées de la période choisie.</p>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div>
+        <label class="block text-xs font-bold mb-1.5 text-gray-600"><i class="fa-solid fa-calendar-day mr-1" style="color:var(--srm-blue)"></i>Date de début</label>
+        <input type="date" id="stats-date-from" class="srm-input text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-bold mb-1.5 text-gray-600"><i class="fa-solid fa-calendar-check mr-1" style="color:var(--srm-green)"></i>Date de fin</label>
+        <input type="date" id="stats-date-to" class="srm-input text-sm">
+      </div>
+    </div>
+    <div class="p-3 rounded-xl mb-4 text-xs" style="background:var(--srm-blue-light);border:1px solid #b8d9f0;color:var(--srm-blue)">
+      <i class="fa-solid fa-circle-info mr-1"></i>
+      Le PDF contiendra les cumuls, barres d'avancement et le registre journalier filtrés sur la période sélectionnée.
+    </div>
+    <div class="flex gap-3">
+      <button onclick="closeStatsPdfModal()" class="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold text-gray-600 border hover:bg-gray-50 transition-colors" style="border-color:var(--srm-border)">Annuler</button>
+      <button onclick="exportStatsPDF()" class="flex-1 srm-btn-primary text-sm py-2.5 justify-center" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">
+        <i class="fa-solid fa-file-pdf"></i> Générer PDF
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
