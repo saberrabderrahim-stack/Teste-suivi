@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Suivi des Travaux AEP - SRM Casablanca-Settat (Avec Délai)</title>
+<title>Suivi des Travaux AEP - SRM Casablanca-Settat</title>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" onerror="window._qrLibFailed=true"></script>
 <style>
 :root {
@@ -181,7 +182,7 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
         <input type="text" id="global-project-name" placeholder="Ex: PROJET_AEP_AIN_CHOCK_2025" class="srm-input font-bold">
         <div class="mt-2">
           <label class="block text-xs font-semibold text-gray-500 mb-1"><i class="fa-solid fa-calendar-day mr-1" style="color:var(--srm-blue)"></i>Date de début du projet</label>
-          <input type="date" id="project-start-date" class="srm-input text-sm">
+          <input type="date" id="project-start-date" class="srm-input text-sm" onchange="renderProgressBars()">
         </div>
       </div>
       <div>
@@ -275,9 +276,11 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
         </div>
       </div>
 
-      <!-- ⭐ NOUVEAU: SECTION DÉLAI / TEMPS ⭐ -->
-      <div id="time-metrics-container" class="mt-4 pt-3 border-t" style="border-color:var(--srm-border)"></div>
-
+      <!-- DÉLAI ANALYSIS -->
+      <div id="delai-section" class="pt-3 border-t space-y-2 hidden" style="border-color:var(--srm-border)">
+        <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-hourglass-half mr-1" style="color:#7c3aed"></i>Analyse du Délai Contractuel</p>
+        <div id="delai-content"></div>
+      </div>
     </div>
 
     <!-- ═══ ACCORDION SECTIONS ═══ -->
@@ -786,7 +789,7 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
 
 <script>
 // ════════════════════════════ LOGO BASE64 ════════════════════════════
-const LOGO_B64 = 'data:image/png;base64,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';
+const LOGO_B64 = 'data:image/png;base64,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';
 
 // ════════════════════════════ STATE ════════════════════════════
 let records = JSON.parse(localStorage.getItem('water_project_records')) || [];
@@ -794,7 +797,7 @@ let capturedPhotos = JSON.parse(localStorage.getItem('water_project_photos')) ||
 let autoCapturedLocation = { text:"Non disponible", mapsUrl:"" };
 let loadedFileName = null;
 let currentUser = null;
-let projectTargets = { linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMonths:0 };
+let projectTargets = { linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMois:0 };
 
 const USERS = {
   "asaber":     { password:"Al@e16Lokmn23",  displayName:"A. SABER",     role:"Chargé d'Affaires" },
@@ -916,14 +919,7 @@ function importPreviousExcel(event){
         projectTargets.branchements=parseFloat(ts[2]?ts[2][1]:0)||0;
         projectTargets.remiseEtat=parseFloat(ts[3]?ts[3][1]:0)||0;
         projectTargets.raccordements=parseFloat(ts[4]?ts[4][1]:0)||0;
-        // ⭐ NEW: Read délai (A6, B6)
-        if(ts[5] && ts[5][0] && ts[5][0].toString().toLowerCase().includes('délai')){
-            projectTargets.delaiMonths = parseFloat(ts[5][1])||0;
-        } else if(ts[6] && ts[6][0] && ts[6][0].toString().toLowerCase().includes('délai')){
-            projectTargets.delaiMonths = parseFloat(ts[6][1])||0;
-        } else {
-            projectTargets.delaiMonths = 0;
-        }
+        projectTargets.delaiMois=parseFloat(ts[5]?ts[5][1]:0)||0;
       }
       const sn=wb.SheetNames.includes("Registre Général")?"Registre Général":wb.SheetNames[0];
       const jd=XLSX.utils.sheet_to_json(wb.Sheets[sn]);
@@ -1051,20 +1047,6 @@ function buildWorkbook(){
     ["════ 6. RACCORDEMENTS ════"],[" Type"," Quantité"],
     [" Raccordement <= 200",c.raccordements.r200],[" Raccordement <= 300",c.raccordements.r300]
   ];
-
-  // ⭐ NEW: Add Time Metrics
-  const metrics = calculateTimeMetrics();
-  rows.push([],["════ 7. TABLEAU DE BORD TEMPS (Délai) ════"]);
-  rows.push([" Délai total (mois)",projectTargets.delaiMonths || 0]);
-  rows.push([" Délai total (jours estimés)",(projectTargets.delaiMonths * 30)]);
-  rows.push([" Jours écoulés depuis début",metrics.elapsedDays]);
-  rows.push([" Jours restants estimés",metrics.remainingDays]);
-  rows.push([" Production réseau restante (m)",metrics.totalReseauLeft.toFixed(2)]);
-  rows.push([" Production branchements restante (u)",metrics.totalBranchLeft]);
-  rows.push([" Production réseau nécessaire par jour (m/jour)",metrics.requiredDailyReseau.toFixed(2)]);
-  rows.push([" Production branchements nécessaire par jour (u/jour)",metrics.requiredDailyBranch.toFixed(1)]);
-  rows.push([" Statut par rapport au délai",metrics.status==='critical'?"⚠️ CRITIQUE (retard sévère)":metrics.status==='warning'?"⚠️ Attention (léger retard)":"✅ Dans les temps"]);
-
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Résumé des Cumuls");
 
   // SHEET 3: Objectifs du Projet
@@ -1074,7 +1056,7 @@ function buildWorkbook(){
     ["Nombre total de branchements à réaliser (u)",projectTargets.branchements],
     ["Linéaire total de remise en état (m)",projectTargets.remiseEtat],
     ["Nombre de raccordements à réaliser (u)",projectTargets.raccordements],
-    ["Délai (mois)",projectTargets.delaiMonths]
+    ["Délai d'exécution (mois)",projectTargets.delaiMois]
   ];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(tRows),"total à réaliser");
 
@@ -1115,51 +1097,7 @@ function clearAllRecords(){
   renderTable();calculateStatistics();renderProgressBars();showToast('Effacé avec succès.','error');
 }
 
-// ════════════════════════════ TIME METRICS ⭐ NEW ════════════════════════════
-function calculateTimeMetrics() {
-    const startDateStr = document.getElementById('project-start-date').value;
-    if (!startDateStr || !projectTargets.delaiMonths || projectTargets.delaiMonths <= 0) {
-        return { elapsedDays: 0, remainingDays: 0, requiredDailyReseau: 0, requiredDailyBranch: 0, totalReseauLeft: 0, totalBranchLeft: 0, status: 'no_data', totalDays: 0, timeProgress: 0, workProgress: 0 };
-    }
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startDate = new Date(startDateStr);
-    startDate.setHours(0, 0, 0, 0);
-    
-    if (startDate > today) return { elapsedDays: 0, remainingDays: 0, requiredDailyReseau: 0, requiredDailyBranch: 0, totalReseauLeft: 0, totalBranchLeft: 0, status: 'not_started', totalDays: 0, timeProgress: 0, workProgress: 0 };
-    
-    // Calculate elapsed days (calendar)
-    const elapsedDays = Math.max(1, Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) + 1);
-    const totalDays = projectTargets.delaiMonths * 30; // Estimation: 30 days per month
-    const remainingDays = Math.max(0, totalDays - elapsedDays);
-    
-    // Remaining quantities
-    const cum = getAggregatedCumuls();
-    const totalReseauDone = Object.values(cum.reseau).reduce((a,b)=>a+b,0);
-    const totalBranchDone = cum.branch.DN32 + cum.branch.DN50;
-    const totalReseauLeft = Math.max(0, projectTargets.linearReseau - totalReseauDone);
-    const totalBranchLeft = Math.max(0, projectTargets.branchements - totalBranchDone);
-    
-    // Required daily production
-    let requiredDailyReseau = 0, requiredDailyBranch = 0, status = 'on_time';
-    if (remainingDays > 0) {
-        requiredDailyReseau = totalReseauLeft / remainingDays;
-        requiredDailyBranch = totalBranchLeft / remainingDays;
-    }
-    
-    // Compare time progress vs work progress
-    const timeProgress = (elapsedDays / totalDays) * 100;
-    const workProgress = (totalReseauDone / projectTargets.linearReseau) * 100;
-    const gap = workProgress - timeProgress;
-    if (gap < -15) status = 'critical';
-    else if (gap < 0) status = 'warning';
-    else status = 'good';
-    
-    return { elapsedDays, remainingDays, requiredDailyReseau, requiredDailyBranch, totalReseauLeft, totalBranchLeft, status, totalDays, timeProgress, workProgress };
-}
-
-// ════════════════════════════ PDF EXPORT (with Délai) ⭐ MODIFIED ════════════════════════════
+// ════════════════════════════ PDF EXPORT ════════════════════════════
 function exportToPDF(){
   if(!records.length){alert('Aucune donnée à exporter !');return;}
 
@@ -1174,9 +1112,6 @@ function exportToPDF(){
   const _tRem=Object.values(_c.remise).reduce((a,b)=>a+b,0);
   const _tRac=_c.raccordements.r200+_c.raccordements.r300;
   const _pct=(v,t)=>t>0?Math.min(100,(v/t*100)).toFixed(0)+'%':'—';
-  
-  // Add Time Metrics to QR
-  const tm = calculateTimeMetrics();
   const qrContent=
     'Projet: '+proj_name+
     '\nSaisie par: '+user_name+
@@ -1186,20 +1121,16 @@ function exportToPDF(){
     '\nReseau lineaire: '+projectTargets.linearReseau+' m / '+_tL.toFixed(2)+' m ('+_pct(_tL,projectTargets.linearReseau)+')'+
     '\nBranchements: '+projectTargets.branchements+' u / '+_tB+' u ('+_pct(_tB,projectTargets.branchements)+')'+
     '\nRemise en etat: '+projectTargets.remiseEtat+' m / '+_tRem.toFixed(2)+' m ('+_pct(_tRem,projectTargets.remiseEtat)+')'+
-    '\nRaccordements: '+projectTargets.raccordements+' u / '+_tRac+' u ('+_pct(_tRac,projectTargets.raccordements)+')'+
-    '\n\n--- Délai (Temps) ---'+
-    '\nDélai total: '+projectTargets.delaiMonths+' mois ('+(projectTargets.delaiMonths*30)+' jours)'+
-    '\nJours écoulés: '+tm.elapsedDays+
-    '\nJours restants: '+tm.remainingDays+
-    '\nProduction réseau nécessaire/jour: '+tm.requiredDailyReseau.toFixed(2)+' m'+
-    '\nProduction branchements nécessaire/jour: '+tm.requiredDailyBranch.toFixed(1)+' u'+
-    '\nStatut: '+(tm.status==='critical'?'⚠️ CRITIQUE (retard sévère)':tm.status==='warning'?'⚠️ Attention (léger retard)':'✅ Dans les temps');
+    '\nRaccordements: '+projectTargets.raccordements+' u / '+_tRac+' u ('+_pct(_tRac,projectTargets.raccordements)+')';
 
-  // Fetch QR function (same as before)
+  // Generate QR using self-contained generator (no external library needed)
+  // Fetch QR from reliable external API (runs in user's browser)
   function fetchQR(text, callback){
     var shortText = text.substring(0, 500);
     var encoded = encodeURIComponent(shortText);
+    // Primary: qrserver.com
     var url1 = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' + encoded;
+    // Fallback: Google Charts
     var url2 = 'https://chart.googleapis.com/chart?chs=200x200&cht=qr&choe=UTF-8&chl=' + encoded;
 
     function urlToDataURL(url, cb){
@@ -1220,20 +1151,21 @@ function exportToPDF(){
 
     urlToDataURL(url1, function(data){
       if(data){ callback(data); return; }
+      // Try fallback
       urlToDataURL(url2, function(data2){
-        callback(data2);
+        callback(data2); // may be null, PDF will show empty box
       });
     });
   }
 
   showToast('Génération du PDF en cours...');
   fetchQR(qrContent, function(qrDataUrl){
-    try{ _doPDF(qrDataUrl, tm); }
+    try{ _doPDF(qrDataUrl); }
     catch(err){ console.error('PDF error:',err); showToast('Erreur PDF: '+err.message,'error'); }
   });
 }
 
-function _doPDF(qrDataUrl, timeMetrics){
+function _doPDF(qrDataUrl){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF('p','mm','a4');
   const proj=document.getElementById('global-project-name').value||'Non spécifié';
@@ -1245,11 +1177,13 @@ function _doPDF(qrDataUrl, timeMetrics){
   const O=[232,130,62]; // SRM Orange
   const DARK=[30,45,61];
   const LB=[232,244,253]; // Light Blue
-  const GR=[244,246,249];
+  const GR=[244,246,249]; // Gray
 
+  // ── helpers ──
   function hdr(pageNum){
     doc.setFillColor(...B);doc.rect(0,0,pW,18,'F');
     try{ if(LOGO_B64) doc.addImage(LOGO_B64,'PNG',3,2,13,13); }catch(e){}
+    // Institutional text block (left of center)
     doc.setTextColor(255,255,255);
     doc.setFontSize(6);doc.setFont(undefined,'bold');
     doc.text('DIRECTION PRÉFECTORALE',20,5);
@@ -1257,8 +1191,10 @@ function _doPDF(qrDataUrl, timeMetrics){
     doc.setFontSize(5.5);doc.setFont(undefined,'normal');
     doc.text('DÉPARTEMENT ÉTUDES ET TRAVAUX',20,12.5);
     doc.text('DIVISION EAU POTABLE',20,16);
+    // Project title centered
     doc.setFontSize(8.5);doc.setFont(undefined,'bold');
     doc.text(proj.toUpperCase(),pW/2,10,{align:'center'});
+    // QR code top-right
     if(qrDataUrl){
       try{ doc.addImage(qrDataUrl,'PNG',pW-18,1.5,14,14); }catch(e){}
     } else {
@@ -1274,8 +1210,10 @@ function _doPDF(qrDataUrl, timeMetrics){
     doc.text(String(pageNum),pW/2,pH-3,{align:'center'});
   }
 
-  // PAGE 1
+  // ════ PAGE 1 ════
   hdr(1);
+
+  // Sous-titre
   doc.setFillColor(...LB);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setFontSize(8);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('RAPPORT GLOBAL CUMULÉ — RENOUVELLEMENT RÉSEAU AEP',pW/2,24.8,{align:'center'});
@@ -1300,34 +1238,41 @@ function _doPDF(qrDataUrl, timeMetrics){
       alternateRowStyles:{fillColor:[247,251,255]},
       margin:{left:x,right:pW-x-w},
       tableWidth:w,
-      didDrawPage:function(){}
+      didDrawPage:function(){}  // prevent autoTable from adding its own headers
     });
     return doc.lastAutoTable.finalY+2.5;
   }
 
+  // ── Colonne Gauche ──
   let yL=Y;
+  // 1. Réseau
   yL=secBar(colL,yL,colW,'1. LINÉAIRES RÉSEAU PAR DIAMÈTRE',B);
   const totalReseau=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const rRows=Object.keys(c.reseau).map(d=>['DN '+d,c.reseau[d].toFixed(2)+' m']);
   rRows.push(['TOTAL',totalReseau.toFixed(2)+' m',(projectTargets.linearReseau>0?(totalReseau/projectTargets.linearReseau*100).toFixed(1)+'%':'—')]);
   yL=tbl(colL,yL,colW,['Diamètre','Linéaire','% Obj.'],rRows,B);
 
+  // 3. Remise
   yL=secBar(colL,yL,colW,'3. REMISE EN ÉTAT',O);
   const remR=Object.keys(c.remise).filter(t=>c.remise[t]>0).map(t=>[t,c.remise[t].toFixed(2)+' m']);
   if(!remR.length)remR.push(['—','0.00 m']);
   remR.push(['TOTAL',Object.values(c.remise).reduce((a,b)=>a+b,0).toFixed(2)+' m']);
   yL=tbl(colL,yL,colW,['Revêtement','Distance'],remR,O);
 
+  // 5. Vannes
   yL=secBar(colL,yL,colW,'5. VANNES',[60,110,160]);
   yL=tbl(colL,yL,colW,['Type','Qté'],[['Vanne <= 150',c.vannes.v150+' u'],['Vanne <= 300',c.vannes.v300+' u']],[60,110,160]);
 
+  // ── Colonne Droite ──
   let yR=Y;
+  // 2. Branchements
   yR=secBar(colR,yR,colW,'2. BRANCHEMENTS',G);
   yR=tbl(colR,yR,colW,['DN','Qté','Obj.','Avt.'],
     [['DN 32',c.branch.DN32+' u','—','—'],
      ['DN 50',c.branch.DN50+' u','—','—'],
      ['TOTAL',(c.branch.DN32+c.branch.DN50)+' u',projectTargets.branchements>0?projectTargets.branchements+'':'—',projectTargets.branchements>0?(((c.branch.DN32+c.branch.DN50)/projectTargets.branchements)*100).toFixed(0)+'%':'—']],G);
 
+  // 4. Mise en service
   yR=secBar(colR,yR,colW,'4. MISE EN SERVICE & RACCORDEMENTS',[99,60,180]);
   yR=tbl(colR,yR,colW,['Composant','Qté'],
     [['DN32 Jonctions',c.service.j32+' u'],['DN32 — 1 Cpt',c.service.c1_32+' u'],
@@ -1336,6 +1281,7 @@ function _doPDF(qrDataUrl, timeMetrics){
      ['DN50 — 2 Cpt',c.service.c2_50+' u'],['DN50 — 3 Cpt',c.service.c3_50+' u'],
      ['Racc <= 200',c.raccordements.r200+' u'],['Racc <= 300',c.raccordements.r300+' u']],[99,60,180]);
 
+  // ── Avancement ──
   let Y2=Math.max(yL,yR)+3;
   const tL=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const tB=c.branch.DN32+c.branch.DN50;
@@ -1371,36 +1317,6 @@ function _doPDF(qrDataUrl, timeMetrics){
     doc.setTextColor(...DARK);Y2+=13;
   });
 
-  // ⭐ NEW: Add Délai section to PDF Page 1
-  if(projectTargets.delaiMonths > 0){
-    Y2 += 2;
-    doc.setFillColor(245,243,255);doc.roundedRect(14,Y2,pW-28,6,1,1,'F');
-    doc.setTextColor(124,58,237);doc.setFontSize(7);doc.setFont(undefined,'bold');
-    doc.text('📅 ANALYSE DU DÉLAI',16,Y2+4.2);
-    Y2+=7;
-    const statColor = timeMetrics.status==='critical'?[239,68,68]:(timeMetrics.status==='warning'?[245,158,11]:[34,197,94]);
-    doc.autoTable({
-      head:[['Indicateur','Valeur']],
-      body:[
-        ['Délai total',projectTargets.delaiMonths+' mois ('+(projectTargets.delaiMonths*30)+' jours)'],
-        ['Jours écoulés depuis début',timeMetrics.elapsedDays+' jours'],
-        ['Jours restants estimés',timeMetrics.remainingDays+' jours'],
-        ['Production réseau restante',timeMetrics.totalReseauLeft.toFixed(2)+' m'],
-        ['Production réseau nécessaire par jour',timeMetrics.requiredDailyReseau.toFixed(2)+' m/jour'],
-        ['Production branchements restante',timeMetrics.totalBranchLeft+' u'],
-        ['Production branchements nécessaire par jour',timeMetrics.requiredDailyBranch.toFixed(1)+' u/jour'],
-        ['Statut par rapport au délai',timeMetrics.status==='critical'?'⚠️ CRITIQUE (retard sévère)':timeMetrics.status==='warning'?'⚠️ Attention (léger retard)':'✅ Dans les temps']
-      ],
-      startY:Y2,
-      styles:{fontSize:6,cellPadding:2},
-      headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold'},
-      alternateRowStyles:{fillColor:[247,251,255]},
-      margin:{left:14,right:14},
-      columnStyles:{0:{fontStyle:'bold',cellWidth:80},1:{cellWidth:'auto'}}
-    });
-    Y2 = doc.lastAutoTable.finalY + 3;
-  }
-
   // Barre globale
   const gc=gPct>=75?G:gPct>=50?O:[239,68,68];
   doc.setFontSize(7.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
@@ -1411,7 +1327,7 @@ function _doPDF(qrDataUrl, timeMetrics){
   if(gf>0){doc.setFillColor(...gc);doc.roundedRect(bX,Y2+6,gf,bH+1,2,2,'F');}
   Y2+=15;
 
-  // Signatures
+  // ── Signatures ──
   Y2=Math.max(Y2,244);
   const sY=Math.min(Y2,254);
   const bWs=83,bHs=30,sG=7,sX1=14,sX2=14+bWs+sG;
@@ -1433,9 +1349,10 @@ function _doPDF(qrDataUrl, timeMetrics){
   sigBox(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
   ftr(1);
 
-  // PAGE 2 — REGISTRE JOURNALIER (same as before)
+  // ════ PAGE 2 — REGISTRE JOURNALIER ════
   doc.addPage();
   hdr(2);
+
   doc.setFillColor(...LB);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(...B);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
   doc.text('REGISTRE JOURNALIER DES ACTIVITÉS',pW/2,25,{align:'center'});
@@ -1451,6 +1368,7 @@ function _doPDF(qrDataUrl, timeMetrics){
       r.notes||'RAS',tot];
   });
 
+  let autoPageNum=2;
   doc.autoTable({
     head:[['Date / Heure','Saisie par','Catégorie','Section','Détails','Qté/Dist.','Obs.','Total Journée']],
     body:dRows,
@@ -1461,6 +1379,7 @@ function _doPDF(qrDataUrl, timeMetrics){
     columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:18},3:{cellWidth:22},4:{cellWidth:34},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:25}},
     margin:{left:14,right:14},
     didDrawPage:function(data){
+      // Draw header on continuation pages only (page 2 of table onwards)
       if(doc.getNumberOfPages()>2){
         hdr(doc.getNumberOfPages());
       }
@@ -1468,7 +1387,7 @@ function _doPDF(qrDataUrl, timeMetrics){
     }
   });
 
-  // PAGE PHOTOS (same as before)
+  // ════ PAGE PHOTOS ════
   if(capturedPhotos.length>0){
     doc.addPage();
     hdr(doc.getNumberOfPages());
@@ -1624,70 +1543,142 @@ function renderProgressBars(){
   const globalPct=validPhases.length?validPhases.reduce((s,ph)=>s+ph.p,0)/validPhases.length:0;
   document.getElementById('global-progress-fill').style.width=globalPct.toFixed(1)+'%';
   document.getElementById('global-pct-text').innerText=globalPct.toFixed(1)+'%';
-
-  // ⭐ NEW: Render Délai / Time Metrics Section
-  const metrics = calculateTimeMetrics();
-  const timeContainer = document.getElementById('time-metrics-container');
-  if (!timeContainer) return;
-  
-  if (!projectTargets.delaiMonths || projectTargets.delaiMonths <= 0 || metrics.status === 'no_data') {
-      timeContainer.innerHTML = `<div class="p-3 rounded-lg text-center text-xs" style="background:var(--srm-gray);"><i class="fa-regular fa-clock mr-1"></i> ⚠️ Non renseigné: veuillez ajouter la colonne "Délai (mois)" dans votre fichier Excel (feuille "total à réaliser", cellule B6).</div>`;
-      return;
-  }
-  
-  let statusText = '', statusColor = '', statusIcon = '';
-  if (metrics.status === 'critical') { statusText = '⚠️ متأخر بشدة'; statusColor = '#e53e3e'; statusIcon = 'fa-triangle-exclamation'; }
-  else if (metrics.status === 'warning') { statusText = '⚡ متأخر قليلاً'; statusColor = '#ed8936'; statusIcon = 'fa-clock'; }
-  else { statusText = '✔️ في الموعد'; statusColor = '#48bb78'; statusIcon = 'fa-check-circle'; }
-  
-  timeContainer.innerHTML = `
-    <div class="flex items-center gap-2 mb-3">
-      <span class="section-header-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-calendar-week"></i></span>
-      <h3 class="text-sm font-black uppercase tracking-wider" style="color:var(--srm-text)">📅 الجدول الزمني للمشروع (Délai)</h3>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div class="p-3 rounded-xl border" style="background:var(--srm-blue-light);border-color:#b8d9f0">
-            <p class="text-[10px] font-bold uppercase">المدة المنقضية</p>
-            <p class="text-xl font-black" style="color:var(--srm-blue-dark)">${metrics.elapsedDays} <span class="text-sm">يوم</span></p>
-            <p class="text-[10px] text-gray-500">من أصل ${metrics.totalDays} يوم (${projectTargets.delaiMonths} شهر)</p>
-        </div>
-        <div class="p-3 rounded-xl border" style="background:var(--srm-orange-light);border-color:#f9c9a0">
-            <p class="text-[10px] font-bold uppercase">المدة المتبقية</p>
-            <p class="text-xl font-black" style="color:var(--srm-orange-dark)">${metrics.remainingDays} <span class="text-sm">يوم</span></p>
-            <p class="text-[10px] text-gray-500">للانتهاء في الموعد المحدد</p>
-        </div>
-        <div class="p-3 rounded-xl border" style="background:#f3eefe;border-color:#cbb8f8">
-            <p class="text-[10px] font-bold uppercase">الحالة</p>
-            <p class="text-base font-black" style="color:${statusColor}"><i class="fa-solid ${statusIcon} mr-1"></i> ${statusText}</p>
-            <p class="text-[10px] text-gray-500">${metrics.timeProgress.toFixed(1)}% وقت / ${metrics.workProgress.toFixed(1)}% إنجاز</p>
-        </div>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <div class="p-3 rounded-xl border" style="background:#f0fff4;border-color:#c6f6d5">
-            <p class="text-[10px] font-bold uppercase" style="color:var(--srm-green-dark)"><i class="fa-solid fa-ruler-horizontal mr-1"></i> الإنتاج اليومي اللازم للشبكة</p>
-            <p class="text-lg font-black" style="color:var(--srm-green-dark)">${metrics.requiredDailyReseau.toFixed(2)} <span class="text-sm">م/يوم</span></p>
-            <p class="text-[10px] text-gray-500">المتبقي: ${metrics.totalReseauLeft.toFixed(2)} متر</p>
-        </div>
-        <div class="p-3 rounded-xl border" style="background:#fef3eb;border-color:#fde4ce">
-            <p class="text-[10px] font-bold uppercase" style="color:var(--srm-orange-dark)"><i class="fa-solid fa-faucet mr-1"></i> الإنتاج اليومي اللازم للبرانشات</p>
-            <p class="text-lg font-black" style="color:var(--srm-orange-dark)">${metrics.requiredDailyBranch.toFixed(1)} <span class="text-sm">برانش/يوم</span></p>
-            <p class="text-[10px] text-gray-500">المتبقي: ${metrics.totalBranchLeft} برانش</p>
-        </div>
-    </div>
-    <div class="mt-2">
-        <div class="flex justify-between items-center mb-1">
-            <span class="text-[10px] font-bold" style="color:var(--srm-text)">نسبة الوقت المنقضي مقابل نسبة الإنجاز</span>
-            <span class="text-[10px] font-mono-custom">${metrics.timeProgress.toFixed(1)}% / ${metrics.workProgress.toFixed(1)}%</span>
-        </div>
-        <div class="progress-bar-bg relative h-6">
-            <div class="progress-bar-fill absolute top-0 left-0 h-full rounded-l-md" style="width: ${metrics.timeProgress}%; background: #a0aec0; opacity: 0.3;"></div>
-            <div class="progress-bar-fill absolute top-0 left-0 h-full rounded-l-md" style="width: ${metrics.workProgress}%; background: ${metrics.status === 'critical' ? '#e53e3e' : (metrics.status === 'warning' ? '#ed8936' : '#48bb78')}; opacity: 0.8;"></div>
-            <div class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-gray-700">${metrics.workProgress > metrics.timeProgress ? '✔️ ahead' : (metrics.workProgress < metrics.timeProgress ? '⚠️ behind' : 'on track')}</div>
-        </div>
-    </div>
-  `;
+  renderDelaiAnalysis(c, globalPct);
 }
 
+// ════════════════════════════ ANALYSE DU DÉLAI ════════════════════════════
+function renderDelaiAnalysis(c, globalPct){
+  const section = document.getElementById('delai-section');
+  const content = document.getElementById('delai-content');
+  const startDateVal = document.getElementById('project-start-date').value;
+
+  if(!projectTargets.delaiMois || projectTargets.delaiMois<=0 || !startDateVal){
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+
+  const start = new Date(startDateVal+'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const totalDays = Math.round(projectTargets.delaiMois * 30.4375); // mois -> jours
+  const deadline = new Date(start); deadline.setDate(deadline.getDate() + totalDays);
+
+  const elapsedDays = Math.max(0, Math.floor((today - start) / 86400000));
+  const remainingDays = Math.max(0, Math.floor((deadline - today) / 86400000));
+  const timePct = Math.min(100, (elapsedDays/totalDays)*100);
+
+  // Écart avancement réel vs théorique (temps écoulé)
+  const ecart = globalPct - timePct;
+  const enRetard = ecart < -2; // tolérance 2 points
+  const enAvance = ecart > 2;
+
+  // Cadences quotidiennes nécessaires pour finir chaque phase à temps
+  const totalLinear = Object.values(c.reseau).reduce((a,b)=>a+b,0);
+  const totalBranch = c.branch.DN32+c.branch.DN50;
+  const totalRemise = Object.values(c.remise).reduce((a,b)=>a+b,0);
+  const totalRacc = c.raccordements.r200+c.raccordements.r300;
+
+  const remainingDaysSafe = Math.max(1, remainingDays);
+  const cadences = [
+    {name:'Réseau linéaire', restant: Math.max(0, projectTargets.linearReseau - totalLinear), unit:'m', target: projectTargets.linearReseau},
+    {name:'Branchements',    restant: Math.max(0, projectTargets.branchements - totalBranch), unit:'u', target: projectTargets.branchements},
+    {name:'Remise en état',  restant: Math.max(0, projectTargets.remiseEtat - totalRemise),    unit:'m', target: projectTargets.remiseEtat},
+    {name:'Raccordements',   restant: Math.max(0, projectTargets.raccordements - totalRacc),   unit:'u', target: projectTargets.raccordements},
+  ].filter(c=>c.target>0);
+
+  const fmtDate = d => d.toLocaleDateString('fr-FR');
+
+  // Statut global
+  let statusBadge, statusIcon, statusColor, statusBg, statusMsg;
+  if(remainingDays<=0 && globalPct<100){
+    statusBadge='DÉLAI DÉPASSÉ'; statusIcon='fa-circle-exclamation'; statusColor='#dc2626'; statusBg='#fef2f2';
+    statusMsg='Le délai contractuel est dépassé alors que le projet n\'est pas achevé. Une accélération urgente est requise.';
+  } else if(enRetard){
+    statusBadge='EN RETARD'; statusIcon='fa-triangle-exclamation'; statusColor='#d97706'; statusBg='#fffbeb';
+    statusMsg='L\'avancement réel ('+globalPct.toFixed(1)+'%) est inférieur à l\'avancement théorique attendu ('+timePct.toFixed(1)+'%). Un rattrapage est nécessaire.';
+  } else if(enAvance){
+    statusBadge='EN AVANCE'; statusIcon='fa-circle-check'; statusColor='#16a34a'; statusBg='#f0fdf4';
+    statusMsg='L\'avancement réel ('+globalPct.toFixed(1)+'%) dépasse l\'avancement théorique ('+timePct.toFixed(1)+'%). Le projet est en avance sur le planning.';
+  } else {
+    statusBadge='DANS LES TEMPS'; statusIcon='fa-circle-check'; statusColor='#2B7FC1'; statusBg='var(--srm-blue-light)';
+    statusMsg='L\'avancement réel ('+globalPct.toFixed(1)+'%) correspond à l\'avancement théorique attendu ('+timePct.toFixed(1)+'%).';
+  }
+
+  let html = `
+    <div class="p-3 rounded-xl mb-3" style="background:${statusBg};border:1px solid ${statusColor}33;">
+      <div class="flex items-center gap-2 mb-1.5">
+        <i class="fa-solid ${statusIcon}" style="color:${statusColor}"></i>
+        <span class="text-sm font-black" style="color:${statusColor}">${statusBadge}</span>
+      </div>
+      <p class="text-xs text-gray-600 leading-relaxed">${statusMsg}</p>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+      <div class="p-2.5 rounded-xl text-center" style="background:var(--srm-blue-light);border:1px solid #b8d9f0">
+        <p class="text-lg font-black" style="color:var(--srm-blue-dark)">${projectTargets.delaiMois}</p>
+        <p class="text-[10px] font-semibold text-gray-500">Délai (mois)</p>
+      </div>
+      <div class="p-2.5 rounded-xl text-center" style="background:var(--srm-green-light);border:1px solid #b3e0ba">
+        <p class="text-lg font-black" style="color:var(--srm-green-dark)">${elapsedDays}</p>
+        <p class="text-[10px] font-semibold text-gray-500">Jours écoulés / ${totalDays}</p>
+      </div>
+      <div class="p-2.5 rounded-xl text-center" style="background:${remainingDays<=0?'#fef2f2':'var(--srm-orange-light)'};border:1px solid ${remainingDays<=0?'#fecaca':'#f9c9a0'}">
+        <p class="text-lg font-black" style="color:${remainingDays<=0?'#dc2626':'var(--srm-orange-dark)'}">${remainingDays}</p>
+        <p class="text-[10px] font-semibold text-gray-500">Jours restants</p>
+      </div>
+      <div class="p-2.5 rounded-xl text-center" style="background:#f5f3ff;border:1px solid #ddd6fe">
+        <p class="text-lg font-black" style="color:#7c3aed">${fmtDate(deadline)}</p>
+        <p class="text-[10px] font-semibold text-gray-500">Date d'échéance</p>
+      </div>
+    </div>
+
+    <!-- Comparaison avancement réel vs théorique -->
+    <div class="space-y-2 mb-3">
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-600">Avancement réel (travaux)</span>
+          <span class="text-xs font-black" style="color:${statusColor}">${globalPct.toFixed(1)}%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${globalPct}%;background:${statusColor}"></div></div>
+      </div>
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-600">Avancement théorique (temps écoulé)</span>
+          <span class="text-xs font-black text-gray-500">${timePct.toFixed(1)}%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${timePct}%;background:#9ca3af"></div></div>
+      </div>
+    </div>`;
+
+  if(remainingDays>0 && cadences.length){
+    html += `<div class="rounded-xl overflow-hidden border" style="border-color:var(--srm-border)">
+      <div class="px-3 py-2" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">
+        <p class="text-xs font-bold text-white"><i class="fa-solid fa-gauge-high mr-1"></i>Cadence quotidienne requise pour respecter le délai</p>
+      </div>
+      <table class="w-full text-xs">
+        <thead><tr style="background:var(--srm-gray)">
+          <th class="p-2 text-left font-semibold text-gray-500">Phase</th>
+          <th class="p-2 font-semibold text-gray-500">Quantité restante</th>
+          <th class="p-2 font-semibold text-gray-500">Cadence / jour requise</th>
+        </tr></thead><tbody>`;
+    cadences.forEach((cd,i)=>{
+      const cadenceJour = cd.restant / remainingDaysSafe;
+      const bg = i%2===0 ? '' : 'background:#f7f9ff';
+      html += `<tr style="${bg}">
+        <td class="p-2 font-bold" style="color:var(--srm-text)">${cd.name}</td>
+        <td class="p-2 text-center">${cd.restant.toFixed(2)} ${cd.unit}</td>
+        <td class="p-2 text-center font-black" style="color:#7c3aed">${cadenceJour.toFixed(2)} ${cd.unit}/j</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  } else if(remainingDays<=0){
+    html += `<div class="p-3 rounded-xl text-center text-xs font-bold" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca">
+      <i class="fa-solid fa-circle-info mr-1"></i>Aucune cadence calculable : le délai est déjà dépassé.
+    </div>`;
+  }
+
+  content.innerHTML = html;
+}
 function getAggregatedCumuls(){
   let res={'75':0,'90':0,'110':0,'160':0,'225':0,'315':0},branch={DN32:0,DN50:0},remise={'Chaussée':0,'Pavé':0,'Carrelage O':0,'Carrelage S':0,'Béton':0,'Asphalte N':0},service={j32:0,c1_32:0,c2_32:0,c3_32:0,j50:0,c1_50:0,c2_50:0,c3_50:0},vannes={v150:0,v300:0},racc={r200:0,r300:0};
   records.forEach(r=>{
@@ -1762,6 +1753,7 @@ function openStatsPdfModal(){
   if(!records.length){showToast('Aucune donnée à exporter !','error');return;}
   const modal = document.getElementById('stats-pdf-modal');
   modal.style.display = 'flex';
+  // Auto-fill: min and max dates from records
   const dates = records.map(r=>r.dateStr).filter(Boolean).sort();
   if(dates.length){
     document.getElementById('stats-date-from').value = dates[0];
@@ -1772,6 +1764,43 @@ function closeStatsPdfModal(){
   document.getElementById('stats-pdf-modal').style.display = 'none';
 }
 
+// ════ QUICK PERIOD PRESETS ════
+function setStatsPeriod(kind){
+  const today = new Date();
+  const fmt = d => d.toISOString().slice(0,10);
+  let from, to;
+
+  if(kind === 'week'){
+    // Monday -> Sunday of current week
+    const day = today.getDay(); // 0=Sun..6=Sat
+    const diffToMon = (day === 0 ? -6 : 1 - day);
+    const mon = new Date(today); mon.setDate(today.getDate() + diffToMon);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    from = fmt(mon); to = fmt(sun);
+  } else if(kind === 'month'){
+    from = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+    to   = fmt(new Date(today.getFullYear(), today.getMonth()+1, 0));
+  } else if(kind === 'lastmonth'){
+    from = fmt(new Date(today.getFullYear(), today.getMonth()-1, 1));
+    to   = fmt(new Date(today.getFullYear(), today.getMonth(), 0));
+  } else if(kind === 'quarter'){
+    const q = Math.floor(today.getMonth()/3);
+    from = fmt(new Date(today.getFullYear(), q*3, 1));
+    to   = fmt(new Date(today.getFullYear(), q*3+3, 0));
+  } else if(kind === 'year'){
+    from = fmt(new Date(today.getFullYear(), 0, 1));
+    to   = fmt(new Date(today.getFullYear(), 11, 31));
+  } else if(kind === 'all'){
+    const dates = records.map(r=>r.dateStr).filter(Boolean).sort();
+    if(dates.length){ from = dates[0]; to = dates[dates.length-1]; }
+    else { from = fmt(today); to = fmt(today); }
+  }
+
+  document.getElementById('stats-date-from').value = from;
+  document.getElementById('stats-date-to').value   = to;
+}
+
+// ════ FILTERED CUMULS (for a date range) ════
 function getFilteredCumuls(from, to){
   const filtered = records.filter(r => {
     if(!r.dateStr) return false;
@@ -1820,6 +1849,7 @@ function getDailyTotalFiltered(dateStr, filteredRecs){
   return parts.length>0?parts.join(' | '):'—';
 }
 
+// ════ EXPORT STATS PDF ════
 function exportStatsPDF(){
   const from = document.getElementById('stats-date-from').value;
   const to   = document.getElementById('stats-date-to').value;
@@ -1837,6 +1867,7 @@ function exportStatsPDF(){
   const dateStr = now.toLocaleDateString('fr-FR');
   const timeStr = now.toLocaleTimeString('fr-FR');
 
+  // Format date for display
   const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
 
   const _tL=Object.values(c.reseau).reduce((a,b)=>a+b,0);
@@ -1856,6 +1887,7 @@ function exportStatsPDF(){
     '\nRemise: '+_tRem.toFixed(2)+' m ('+_pct(_tRem,projectTargets.remiseEtat)+')'+
     '\nRacc.: '+_tRac+' u ('+_pct(_tRac,projectTargets.raccordements)+')';
 
+  // Reuse fetchQR from exportToPDF scope — define inline
   function fetchQR(text, callback){
     var enc=encodeURIComponent(text.substring(0,500));
     var u1='https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data='+enc;
@@ -1891,14 +1923,18 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   }
   function ftr(n){doc.setTextColor(150,160,170);doc.setFontSize(8);doc.text(String(n),pW/2,pH-3,{align:'center'});}
 
+  // PAGE 1
   hdr();
 
+  // Title strip
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,8,2,2,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
   doc.text('RAPPORT STATISTIQUES — PÉRIODE : '+fmtDate(from)+' → '+fmtDate(to),pW/2,25.2,{align:'center'});
   doc.setTextColor(...DARK);
 
   let Y=31;
+
+  // Info block
   doc.setFillColor(...GR);doc.roundedRect(14,Y,pW-28,6,1,1,'F');
   doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('INFORMATIONS',16,Y+4.2);doc.setTextColor(...DARK);Y+=8;
@@ -1911,6 +1947,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   });
   Y=doc.lastAutoTable.finalY+4;
 
+  // Two-column layout
   const colL=14, colR=110, colW=87;
   let yL=Y, yR=Y;
 
@@ -1924,6 +1961,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
     return doc.lastAutoTable.finalY+2.5;
   }
 
+  // Left: Réseau + Remise
   yL=secBar(colL,yL,colW,'1. LINÉAIRES RÉSEAU PAR DIAMÈTRE',B);
   const totalReseau=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const rRows=Object.keys(c.reseau).filter(d=>c.reseau[d]>0).map(d=>['DN '+d,c.reseau[d].toFixed(2)+' m']);
@@ -1940,6 +1978,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   yL=secBar(colL,yL,colW,'5. VANNES',[60,110,160]);
   yL=tbl(colL,yL,colW,['Type','Qté'],[['Vanne ≤ 150',c.vannes.v150+' u'],['Vanne ≤ 300',c.vannes.v300+' u']],[60,110,160]);
 
+  // Right: Branchements + Mise en service
   yR=secBar(colR,yR,colW,'2. BRANCHEMENTS',G);
   yR=tbl(colR,yR,colW,['DN','Qté','Obj.','Avt.'],
     [['DN 32',c.branch.DN32+' u','—','—'],
@@ -1954,6 +1993,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
      ['DN50 — 2 Cpt',c.service.c2_50+' u'],['DN50 — 3 Cpt',c.service.c3_50+' u'],
      ['Racc ≤ 200',c.raccordements.r200+' u'],['Racc ≤ 300',c.raccordements.r300+' u']],P);
 
+  // Progress bars
   let Y2=Math.max(yL,yR)+3;
   const pctV=(v,t)=>t>0?Math.min(100,v/t*100):0;
   const phases=[
@@ -1983,6 +2023,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
     doc.setTextColor(...DARK);Y2+=13;
   });
 
+  // Global bar
   const gc=gPct>=75?G:gPct>=50?O:[239,68,68];
   doc.setFontSize(7.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
   doc.text('AVANCEMENT GLOBAL PÉRIODE',bX,Y2+4);doc.text(gPct.toFixed(1)+'%',pW-14,Y2+4,{align:'right'});
@@ -1991,6 +2032,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   if(gf>0){doc.setFillColor(...gc);doc.roundedRect(bX,Y2+6,gf,bH+1,2,2,'F');}
   Y2+=15;
 
+  // Signatures
   const sY=Math.min(Math.max(Y2,242),254);
   const bWs=83, bHs=30, sG=7;
   function sigBox(x,y,title,sub){
@@ -2008,6 +2050,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   sigBox(14+bWs+sG,sY,'Représentant SRM-CS','Ingénieur responsable');
   ftr(1);
 
+  // PAGE 2 — Registre filtré
   doc.addPage(); hdr();
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
@@ -2039,13 +2082,15 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   showToast('PDF Statistiques généré !');
 }
 
+
 // ════════════════════════════════════════════════════════════════
-// MULTI-PROJECTS CONSOLIDATION MODULE (unchanged but kept for completeness)
+// MULTI-PROJECTS CONSOLIDATION MODULE
 // ════════════════════════════════════════════════════════════════
 
-let mpProjects = [];
-let mpCharts   = {};
+let mpProjects = []; // Array of { name, records, targets }
+let mpCharts   = {}; // Chart.js instances (destroyed on re-render)
 
+// ── TAB SWITCHING ──
 function switchTab(tabId){
   document.getElementById('tab-suivi').classList.toggle('hidden', tabId !== 'tab-suivi');
   document.getElementById('tab-multi').classList.toggle('hidden', tabId !== 'tab-multi');
@@ -2055,6 +2100,7 @@ function switchTab(tabId){
   document.getElementById('nav-multi').style.color        = tabId === 'tab-multi'  ? '#7c3aed' : '#9ca3af';
 }
 
+// ── FILE DROP / INPUT ──
 function mpHandleDrop(event){
   event.preventDefault();
   const dz = document.getElementById('mp-dropzone');
@@ -2076,23 +2122,29 @@ function mpProcessFiles(files){
     reader.onload = function(e){
       try{
         const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+
+        // Parse targets
         const tgtSheet = wb.SheetNames.find(s => s.toLowerCase().includes('total'));
-        let targets = {linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMonths:0};
+        let targets = {linearReseau:0, branchements:0, remiseEtat:0, raccordements:0};
         if(tgtSheet){
           const ts = XLSX.utils.sheet_to_json(wb.Sheets[tgtSheet], {header:1});
           targets.linearReseau  = parseFloat(ts[1]?ts[1][1]:0)||0;
           targets.branchements  = parseFloat(ts[2]?ts[2][1]:0)||0;
           targets.remiseEtat    = parseFloat(ts[3]?ts[3][1]:0)||0;
           targets.raccordements = parseFloat(ts[4]?ts[4][1]:0)||0;
-          if(ts[5] && ts[5][0] && ts[5][0].toString().toLowerCase().includes('délai')) targets.delaiMonths = parseFloat(ts[5][1])||0;
-          else if(ts[6] && ts[6][0] && ts[6][0].toString().toLowerCase().includes('délai')) targets.delaiMonths = parseFloat(ts[6][1])||0;
         }
+
+        // Parse records
         const sn = wb.SheetNames.includes("Registre Général") ? "Registre Général" : wb.SheetNames[0];
         const jd = XLSX.utils.sheet_to_json(wb.Sheets[sn]);
+
         const projName = (jd[0] && jd[0]['Projet']) ? jd[0]['Projet'] : file.name.replace(/\.xlsx?$/i,'');
         const recs = jd.map((row,i) => parseRow(row, i));
+
+        // Check duplicate
         const existingIdx = mpProjects.findIndex(p => p.name === projName);
         if(existingIdx >= 0) mpProjects.splice(existingIdx, 1);
+
         mpProjects.push({ name: projName, records: recs, targets, fileName: file.name });
       } catch(err){ console.error('Error reading', file.name, err); showToast('Erreur lecture : '+file.name, 'error'); }
       pending--;
@@ -2140,6 +2192,7 @@ function mpClearAll(){
   mpCharts = {};
 }
 
+// ── AGGREGATION HELPERS ──
 function mpGetCumuls(records){
   const res = {75:0,90:0,110:0,160:0,225:0,315:0};
   const branch = {DN32:0, DN50:0};
@@ -2147,6 +2200,7 @@ function mpGetCumuls(records){
   const service = {j32:0,c1_32:0,c2_32:0,c3_32:0,j50:0,c1_50:0,c2_50:0,c3_50:0};
   const racc = {r200:0, r300:0};
   const vannes = {v150:0, v300:0};
+
   records.forEach(r => {
     if(r.category === 'Réseau'){
       if(r.dn && res[r.dn] !== undefined) res[r.dn] += (r.distance||0);
@@ -2176,30 +2230,42 @@ function mpGetAvancement(cumuls, targets){
   return { tL, tB, tRem, tRac, global, pctReseau:pct(tL,targets.linearReseau), pctBranch:pct(tB,targets.branchements) };
 }
 
+// ── MAIN ANALYZE ──
 function mpAnalyze(){
   if(!mpProjects.length){ showToast('Aucun projet chargé !','error'); return; }
-  const results = mpProjects.map(p => ({ ...p, cumuls: mpGetCumuls(p.records), avt: null }));
+
+  const results = mpProjects.map(p => ({
+    ...p,
+    cumuls: mpGetCumuls(p.records),
+    avt: null
+  }));
   results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); });
+
   document.getElementById('mp-results').classList.remove('hidden');
+
   mpRenderKPI(results);
   mpRenderProgressBars(results);
   mpRenderCharts(results);
   mpRenderTable(results);
+
   document.getElementById('mp-results').scrollIntoView({behavior:'smooth'});
 }
 
+// ── KPI ──
 function mpRenderKPI(results){
   const totalL = results.reduce((s,r)=>s+r.avt.tL,0);
   const totalB = results.reduce((s,r)=>s+r.avt.tB,0);
   const totalRem = results.reduce((s,r)=>s+r.avt.tRem,0);
   const totalRac = results.reduce((s,r)=>s+r.avt.tRac,0);
   const avgGlobal = results.reduce((s,r)=>s+r.avt.global,0)/results.length;
+
   const kpis = [
     {label:'Réseau total posé', val: totalL.toFixed(1)+' m', icon:'fa-pipe', col:'var(--srm-blue)'},
     {label:'Branchements total', val: totalB+' u', icon:'fa-faucet', col:'var(--srm-green)'},
     {label:'Remise en état total', val: totalRem.toFixed(1)+' m', icon:'fa-road', col:'var(--srm-orange)'},
     {label:'Avancement moyen global', val: avgGlobal.toFixed(1)+'%', icon:'fa-gauge-high', col:'#7c3aed'},
   ];
+
   document.getElementById('mp-kpi-grid').innerHTML = kpis.map(k => `
     <div class="p-3 rounded-xl border text-center" style="background:${k.col}10;border-color:${k.col}40">
       <i class="fa-solid ${k.icon} text-lg mb-1" style="color:${k.col}"></i>
@@ -2209,6 +2275,7 @@ function mpRenderKPI(results){
     </div>`).join('');
 }
 
+// ── PROGRESS BARS ──
 function mpRenderProgressBars(results){
   const container = document.getElementById('mp-progress-bars');
   container.innerHTML = '<p class="text-[10px] font-bold uppercase tracking-wider mb-2" style="color:var(--srm-text)"><i class="fa-solid fa-tasks mr-1" style="color:#7c3aed"></i>Avancement par projet</p>';
@@ -2227,6 +2294,7 @@ function mpRenderProgressBars(results){
   });
 }
 
+// ── CHARTS ──
 function mpDestroyChart(id){
   if(mpCharts[id]){ try{mpCharts[id].destroy();}catch(e){} delete mpCharts[id]; }
 }
@@ -2234,56 +2302,133 @@ function mpDestroyChart(id){
 const MP_COLORS = ['#2B7FC1','#4DB05B','#E8823E','#7c3aed','#0891b2','#be185d','#d97706','#059669'];
 
 function mpRenderCharts(results){
+  if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
   const labels = results.map(r => r.name.length > 15 ? r.name.substring(0,15)+'…' : r.name);
   const colors = labels.map((_,i) => MP_COLORS[i % MP_COLORS.length]);
 
+  // 1. Avancement (horizontal bar)
   mpDestroyChart('avancement');
   mpCharts['avancement'] = new Chart(document.getElementById('chart-avancement'), {
     type:'bar',
-    data:{ labels, datasets:[
+    data:{
+      labels,
+      datasets:[
         {label:'Avancement (%)',data:results.map(r=>r.avt.global.toFixed(1)),backgroundColor:colors,borderRadius:6},
         {label:'Objectif (100%)',data:results.map(()=>100),backgroundColor:'rgba(0,0,0,0.05)',borderRadius:6}
-      ] },
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+'%'}}},scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%'}},y:{ticks:{font:{size:10}}}}}
+      ]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.parsed.x+'%'}},
+        datalabels:{
+          display:c=>c.datasetIndex===0,
+          color:'#fff',
+          font:{weight:'bold',size:10},
+          anchor:'end',align:'start',
+          formatter:v=>v+'%'
+        }
+      },
+      scales:{x:{min:0,max:100,ticks:{callback:v=>v+'%'}},y:{ticks:{font:{size:10}}}}}
   });
 
+  // 2. Réseau linéaire
   mpDestroyChart('reseau');
   mpCharts['reseau'] = new Chart(document.getElementById('chart-reseau'), {
     type:'bar',
-    data:{ labels, datasets:[
+    data:{
+      labels,
+      datasets:[
         {label:'Réalisé (m)',data:results.map(r=>r.avt.tL.toFixed(1)),backgroundColor:colors,borderRadius:6},
         {label:'Objectif (m)',data:results.map(r=>r.targets.linearReseau),backgroundColor:'rgba(43,127,193,0.15)',borderRadius:6,borderColor:'rgba(43,127,193,0.5)',borderWidth:1}
-      ] },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9}}}},scales:{y:{ticks:{font:{size:10}}}}}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:9}}},
+        datalabels:{
+          display:c=>c.dataset.data[c.dataIndex]>0,
+          color:c=>c.datasetIndex===0?'#fff':'#2B7FC1',
+          font:{weight:'bold',size:9},
+          anchor:'end',align:c=>c.datasetIndex===0?'start':'end',
+          formatter:v=>v+'m'
+        }
+      },
+      scales:{y:{ticks:{font:{size:10}}}}}
   });
 
+  // 3. Branchements
   mpDestroyChart('branch');
   mpCharts['branch'] = new Chart(document.getElementById('chart-branch'), {
     type:'bar',
-    data:{ labels, datasets:[
+    data:{
+      labels,
+      datasets:[
         {label:'DN 32',data:results.map(r=>r.cumuls.branch.DN32),backgroundColor:'rgba(77,176,91,0.7)',borderRadius:4},
         {label:'DN 50',data:results.map(r=>r.cumuls.branch.DN50),backgroundColor:'rgba(77,176,91,0.35)',borderRadius:4},
         {label:'Objectif',data:results.map(r=>r.targets.branchements),backgroundColor:'rgba(0,0,0,0.06)',borderRadius:4,borderColor:'rgba(77,176,91,0.5)',borderWidth:1}
-      ] },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9}}}},scales:{y:{stacked:false,ticks:{font:{size:10}}}}}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:9}}},
+        datalabels:{
+          display:c=>c.dataset.data[c.dataIndex]>0,
+          color:c=>c.datasetIndex===2?'#4DB05B':'#fff',
+          font:{weight:'bold',size:9},
+          anchor:'end',align:c=>c.datasetIndex===2?'end':'center',
+          formatter:v=>v+'u'
+        }
+      },
+      scales:{y:{stacked:false,ticks:{font:{size:10}}}}}
   });
 
+  // 4. Remise en état
   mpDestroyChart('remise');
   mpCharts['remise'] = new Chart(document.getElementById('chart-remise'), {
     type:'bar',
-    data:{ labels, datasets:[{label:'Remise en état (m)',data:results.map(r=>r.avt.tRem.toFixed(1)),backgroundColor:colors.map(c=>c+'bb'),borderRadius:6}] },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{font:{size:10}}}}}
+    data:{
+      labels,
+      datasets:[{label:'Remise en état (m)',data:results.map(r=>r.avt.tRem.toFixed(1)),backgroundColor:colors.map(c=>c+'bb'),borderRadius:6}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:c=>c.dataset.data[c.dataIndex]>0,
+          color:'#fff',
+          font:{weight:'bold',size:10},
+          anchor:'end',align:'start',
+          formatter:v=>v+'m'
+        }
+      },
+      scales:{y:{ticks:{font:{size:10}}}}}
   });
 
+  // 5. DN distribution donut
   const dnLabels = ['DN 75','DN 90','DN 110','DN 160','DN 225','DN 315'];
   const dnTotals = ['75','90','110','160','225','315'].map(dn => results.reduce((s,r)=>s+(r.cumuls.reseau[dn]||0),0));
   mpDestroyChart('dn-donut');
   mpCharts['dn-donut'] = new Chart(document.getElementById('chart-dn-donut'), {
     type:'doughnut',
     data:{labels:dnLabels,datasets:[{data:dnTotals,backgroundColor:['#2B7FC1','#4DB05B','#E8823E','#7c3aed','#0891b2','#be185d'],hoverOffset:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}}}}
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}},
+        datalabels:{
+          display:c=>c.dataset.data[c.dataIndex]>0,
+          color:'#fff',
+          font:{weight:'bold',size:9},
+          formatter:(v,ctx)=>{
+            const total=ctx.dataset.data.reduce((a,b)=>a+parseFloat(b),0);
+            const pct=total>0?(v/total*100):0;
+            return v.toFixed(0)+'m\n('+pct.toFixed(0)+'%)';
+          }
+        }
+      }}
   });
 
+  // 6. Timeline — cumulative production per project
   mpDestroyChart('timeline');
   const allDates = [...new Set(results.flatMap(r=>r.records.map(rec=>rec.dateStr)).filter(Boolean))].sort();
   const timelineDatasets = results.map((proj,i) => {
@@ -2298,10 +2443,16 @@ function mpRenderCharts(results){
   mpCharts['timeline'] = new Chart(document.getElementById('chart-timeline'), {
     type:'line',
     data:{labels:allDates,datasets:timelineDatasets},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}}},y:{ticks:{font:{size:9}}}}}
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}},
+        datalabels:{display:false}
+      },
+      scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}}},y:{ticks:{font:{size:9}}}}}
   });
 }
 
+// ── DETAIL TABLE ──
 function mpRenderTable(results){
   const tbody = document.getElementById('mp-detail-tbody');
   const tfoot = document.getElementById('mp-detail-tfoot');
@@ -2331,6 +2482,7 @@ function mpRenderTable(results){
     </tr>`;
   }).join('');
 
+  // Total row
   const totL = results.reduce((s,r)=>s+r.avt.tL,0);
   const totB = results.reduce((s,r)=>s+r.avt.tB,0);
   const totRem = results.reduce((s,r)=>s+r.avt.tRem,0);
@@ -2353,14 +2505,17 @@ function mpRenderTable(results){
   </tr>`;
 }
 
+// ── EXPORT PDF ──
 function mpExportPDF(){
   if(!mpProjects.length){ showToast('Aucun projet à exporter !','error'); return; }
   const results = mpProjects.map(p => ({...p, cumuls:mpGetCumuls(p.records), avt:null}));
   results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); });
+
   const now = new Date();
   const dateStr = now.toLocaleDateString('fr-FR');
   const timeStr = now.toLocaleTimeString('fr-FR');
   const uname = currentUser ? (USERS[currentUser]?.displayName||currentUser) : '—';
+
   const qrText = 'Consolidation Multi-Projets\nÉtabli par: '+uname+'\nExport: '+dateStr+' '+timeStr+
     '\nNombre de projets: '+results.length+
     '\nTotal réseau: '+results.reduce((s,r)=>s+r.avt.tL,0).toFixed(2)+' m'+
@@ -2397,12 +2552,15 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   function ftr(n){ doc.setTextColor(150,160,170); doc.setFontSize(7); doc.text('Page '+n+' — '+dateStr+' '+timeStr, pW/2, pH-3, {align:'center'}); }
 
   hdr();
+
+  // Title strip
   doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,20,pW-28,8,2,2,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont(undefined,'bold');
   doc.text('TABLEAU DE BORD CONSOLIDÉ — '+results.length+' PROJETS AEP',pW/2,25.2,{align:'center'});
   doc.setTextColor(DK[0],DK[1],DK[2]);
   let Y = 31;
 
+  // Info
   doc.setFillColor(GR[0],GR[1],GR[2]); doc.roundedRect(14,Y,pW-28,6,1,1,'F');
   doc.setFontSize(7); doc.setFont(undefined,'bold'); doc.setTextColor(PU[0],PU[1],PU[2]);
   doc.text('INFORMATIONS',16,Y+4.2); doc.setTextColor(DK[0],DK[1],DK[2]); Y+=8;
@@ -2413,6 +2571,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   ],startY:Y,styles:{fontSize:7,cellPadding:1.4},columnStyles:{0:{fontStyle:'bold',textColor:PU,cellWidth:30},1:{cellWidth:80},2:{fontStyle:'bold',textColor:PU,cellWidth:30},3:{cellWidth:'auto'}},margin:{left:14,right:14},tableWidth:pW-28});
   Y = doc.lastAutoTable.finalY+4;
 
+  // KPIs
   const totL = results.reduce((s,r)=>s+r.avt.tL,0);
   const totB = results.reduce((s,r)=>s+r.avt.tB,0);
   const totRem = results.reduce((s,r)=>s+r.avt.tRem,0);
@@ -2427,6 +2586,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
     margin:{left:14,right:14},tableWidth:pW-28});
   Y = doc.lastAutoTable.finalY+4;
 
+  // Per-project table
   doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,Y,pW-28,6,1,1,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont(undefined,'bold');
   doc.text('DÉTAIL PAR PROJET',16,Y+4.2); Y+=8;
@@ -2461,6 +2621,8 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   });
 
   ftr(1);
+
+  // PAGE 2 — Progress bars per project
   doc.addPage(); hdr();
   doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
@@ -2508,6 +2670,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
 
   ftr(2);
 
+  // PAGE 3+ — CHARTS (capture des graphiques de l'interface)
   const chartIds = [
     {id:'chart-avancement', title:'AVANCEMENT GLOBAL PAR PROJET (%)'},
     {id:'chart-reseau',     title:'RÉSEAU LINÉAIRE POSÉ (m) PAR PROJET'},
@@ -2547,6 +2710,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
       cy = 30; cx = 14; col2 = false; pageNum++;
     }
 
+    // Chart box
     doc.setFillColor(GR[0],GR[1],GR[2]); doc.roundedRect(cx,cy,chW,6,1,1,'F');
     doc.setFontSize(7); doc.setFont(undefined,'bold'); doc.setTextColor(PU[0],PU[1],PU[2]);
     doc.text(cInfo.title,cx+2,cy+4.2);
@@ -2571,6 +2735,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
 
   ftr(pageNum);
 
+  // PAGE FINALE — Répartition par diamètre (tableau détaillé, comme le donut)
   doc.addPage(); pageNum++; hdr();
   doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont(undefined,'bold');
@@ -2587,6 +2752,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
     row.push(tot.toFixed(2));
     return row;
   });
+  // Total row
   const dnTotalRow = ['TOTAL TOUS PROJETS'];
   let grandTot = 0;
   dnKeys.forEach(d => {
@@ -2610,6 +2776,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   });
   Y = doc.lastAutoTable.finalY+5;
 
+  // Production timeline table (cumulative per date, per project) - condensed
   const allDates = [...new Set(results.flatMap(r=>r.records.map(rec=>rec.dateStr)).filter(Boolean))].sort();
   if(allDates.length){
     doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,Y,pW-28,6,1,1,'F');
@@ -2617,6 +2784,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
     doc.text('PRODUCTION LINÉAIRE CUMULÉE — DERNIERS POINTS DE LA CHRONOLOGIE',16,Y+4.2);
     doc.setTextColor(DK[0],DK[1],DK[2]); Y+=8;
 
+    // Show last 10 dates max to keep it readable
     const sampleDates = allDates.length>10 ? allDates.filter((_,i)=>i%Math.ceil(allDates.length/10)===0 || i===allDates.length-1) : allDates;
     const tlHead = ['Projet', ...sampleDates.map(d=>d.split('-').reverse().slice(0,2).join('/'))];
     const tlBody = results.map(r => {
@@ -2648,8 +2816,8 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
 
 </script>
 
-<!-- STATS PDF MODAL -->
-<div id="stats-pdf-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4" style="background:rgba(0,0,0,0.55);display:none;">
+<!-- ═══ STATS PDF MODAL ═══ -->
+<div id="stats-pdf-modal" class="fixed inset-0 z-50 flex items-center justify-center px-4" style="background:rgba(0,0,0,0.55);display:none!important;">
   <div class="srm-card p-6 w-full max-w-md">
     <div class="flex items-center justify-between mb-5">
       <div class="flex items-center gap-2">
@@ -2658,7 +2826,30 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
       </div>
       <button onclick="closeStatsPdfModal()" class="text-gray-400 hover:text-red-500 transition-colors text-lg"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <p class="text-xs text-gray-500 mb-4">Sélectionnez la plage de dates pour extraire les statistiques cumulées de la période choisie.</p>
+    <p class="text-xs text-gray-500 mb-3">Sélectionnez la plage de dates pour extraire les statistiques cumulées de la période choisie.</p>
+
+    <!-- Quick presets -->
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <button onclick="setStatsPeriod('week')" class="px-2 py-2 rounded-lg text-xs font-bold border transition-colors hover:bg-purple-50" style="border-color:var(--srm-border);color:#7c3aed;">
+        <i class="fa-solid fa-calendar-week mr-1"></i>Cette semaine
+      </button>
+      <button onclick="setStatsPeriod('month')" class="px-2 py-2 rounded-lg text-xs font-bold border transition-colors hover:bg-purple-50" style="border-color:var(--srm-border);color:#7c3aed;">
+        <i class="fa-solid fa-calendar-days mr-1"></i>Ce mois
+      </button>
+      <button onclick="setStatsPeriod('lastmonth')" class="px-2 py-2 rounded-lg text-xs font-bold border transition-colors hover:bg-purple-50" style="border-color:var(--srm-border);color:#7c3aed;">
+        <i class="fa-solid fa-rotate-left mr-1"></i>Mois dernier
+      </button>
+      <button onclick="setStatsPeriod('quarter')" class="px-2 py-2 rounded-lg text-xs font-bold border transition-colors hover:bg-purple-50" style="border-color:var(--srm-border);color:#7c3aed;">
+        <i class="fa-solid fa-calendar mr-1"></i>Trimestre
+      </button>
+      <button onclick="setStatsPeriod('year')" class="px-2 py-2 rounded-lg text-xs font-bold border transition-colors hover:bg-purple-50" style="border-color:var(--srm-border);color:#7c3aed;">
+        <i class="fa-solid fa-calendar-check mr-1"></i>Cette année
+      </button>
+      <button onclick="setStatsPeriod('all')" class="px-2 py-2 rounded-lg text-xs font-bold border transition-colors hover:bg-purple-50" style="border-color:var(--srm-border);color:#7c3aed;">
+        <i class="fa-solid fa-infinity mr-1"></i>Tout
+      </button>
+    </div>
+
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div>
         <label class="block text-xs font-bold mb-1.5 text-gray-600"><i class="fa-solid fa-calendar-day mr-1" style="color:var(--srm-blue)"></i>Date de début</label>
