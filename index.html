@@ -1349,6 +1349,108 @@ function _doPDF(qrDataUrl){
   sigBox(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
   ftr(1);
 
+  // ════ PAGE DÉLAI (si configuré) ════
+  const delaiInfo = computeDelaiAnalysis(c, gPct);
+  if(delaiInfo){
+    doc.addPage();
+    hdr(doc.getNumberOfPages());
+
+    doc.setFillColor(124,58,237);doc.roundedRect(14,20,pW-28,7,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
+    doc.text('ANALYSE DU DÉLAI CONTRACTUEL',pW/2,25,{align:'center'});
+    doc.setTextColor(...DARK);
+
+    let Yd=30;
+    const fmtDateFR = d => d.toLocaleDateString('fr-FR');
+
+    // Status banner
+    const scHex = delaiInfo.statusColor.replace('#','');
+    const scRgb = [parseInt(scHex.substring(0,2),16), parseInt(scHex.substring(2,4),16), parseInt(scHex.substring(4,6),16)];
+    doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);
+    doc.roundedRect(14,Yd,pW-28,16,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont(undefined,'bold');
+    doc.text(delaiInfo.statusBadge,18,Yd+6.5);
+    doc.setFontSize(7.5);doc.setFont(undefined,'normal');
+    const msgLines = doc.splitTextToSize(delaiInfo.statusMsg, pW-40);
+    doc.text(msgLines, 18, Yd+11.5);
+    doc.setTextColor(...DARK);
+    Yd += 16 + (msgLines.length>1?4:0) + 6;
+
+    // KPI cards
+    const kpiW=(pW-28-3*4)/4, kpiH=18;
+    const kpis=[
+      {val:delaiInfo.delaiMois+' mois', lbl:'Délai contractuel', col:B, bg:LB},
+      {val:delaiInfo.elapsedDays+' / '+delaiInfo.totalDays, lbl:'Jours écoulés / total', col:G, bg:[234,247,236]},
+      {val:String(delaiInfo.remainingDays), lbl:'Jours restants', col:(delaiInfo.remainingDays<=0?[220,38,38]:O), bg:(delaiInfo.remainingDays<=0?[254,242,242]:[254,243,235])},
+      {val:fmtDateFR(delaiInfo.deadline), lbl:"Date d'échéance", col:[124,58,237], bg:[245,243,255]}
+    ];
+    kpis.forEach((k,i)=>{
+      const x=14+i*(kpiW+4);
+      doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,2,2,'F');
+      doc.setTextColor(...k.col);doc.setFontSize(10);doc.setFont(undefined,'bold');
+      doc.text(k.val,x+kpiW/2,Yd+8,{align:'center'});
+      doc.setFontSize(6);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
+      doc.text(k.lbl,x+kpiW/2,Yd+14,{align:'center'});
+    });
+    doc.setTextColor(...DARK);
+    Yd += kpiH + 8;
+
+    // Avancement réel vs théorique bars
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
+    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT RÉEL vs THÉORIQUE',16,Yd+4.2);
+    doc.setTextColor(...DARK);Yd+=9;
+
+    const dbW=pW-28, dbH=5, dbX=14;
+    // Réel
+    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement réel (travaux)',dbX,Yd+3.5);
+    doc.setFont(undefined,'normal');doc.setTextColor(...scRgb);
+    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    let f1=Math.max(0,delaiInfo.globalPct/100*dbW);
+    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+5,f1,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=13;
+    // Théorique
+    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+3.5);
+    doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
+    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    let f2=Math.max(0,delaiInfo.timePct/100*dbW);
+    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+5,f2,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=16;
+
+    // Cadences table
+    if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
+      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DÉLAI',16,Yd+4.2);
+      doc.setTextColor(...DARK);Yd+=8;
+
+      const cadBody = delaiInfo.cadences.map(cd=>[
+        cd.name, cd.restant.toFixed(2)+' '+cd.unit, cd.cadenceJour.toFixed(2)+' '+cd.unit+'/jour'
+      ]);
+      doc.autoTable({
+        head:[['Phase','Quantité restante','Cadence/jour requise']],
+        body:cadBody, startY:Yd,
+        styles:{fontSize:8,cellPadding:2.5,halign:'center'},
+        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold'},
+        alternateRowStyles:{fillColor:[247,251,255]},
+        columnStyles:{0:{halign:'left',fontStyle:'bold'},2:{fontStyle:'bold',textColor:[124,58,237]}},
+        margin:{left:14,right:14},tableWidth:pW-28
+      });
+      Yd = doc.lastAutoTable.finalY + 4;
+    } else if(delaiInfo.remainingDays<=0){
+      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,10,2,2,'F');
+      doc.setTextColor(220,38,38);doc.setFontSize(8);doc.setFont(undefined,'bold');
+      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+6.5,{align:'center'});
+      doc.setTextColor(...DARK);Yd+=14;
+    }
+
+    ftr(doc.getNumberOfPages());
+  }
+
   // ════ PAGE 2 — REGISTRE JOURNALIER ════
   doc.addPage();
   hdr(2);
@@ -1379,8 +1481,8 @@ function _doPDF(qrDataUrl){
     columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:18},3:{cellWidth:22},4:{cellWidth:34},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:25}},
     margin:{left:14,right:14},
     didDrawPage:function(data){
-      // Draw header on continuation pages only (page 2 of table onwards)
-      if(doc.getNumberOfPages()>2){
+      // Draw header on continuation pages only
+      if(doc.getNumberOfPages()>(delaiInfo?3:2)){
         hdr(doc.getNumberOfPages());
       }
       ftr(doc.getNumberOfPages());
@@ -1547,16 +1649,10 @@ function renderProgressBars(){
 }
 
 // ════════════════════════════ ANALYSE DU DÉLAI ════════════════════════════
-function renderDelaiAnalysis(c, globalPct){
-  const section = document.getElementById('delai-section');
-  const content = document.getElementById('delai-content');
+// ════ Pure computation, reusable for HTML render + PDF exports ════
+function computeDelaiAnalysis(c, globalPct){
   const startDateVal = document.getElementById('project-start-date').value;
-
-  if(!projectTargets.delaiMois || projectTargets.delaiMois<=0 || !startDateVal){
-    section.classList.add('hidden');
-    return;
-  }
-  section.classList.remove('hidden');
+  if(!projectTargets.delaiMois || projectTargets.delaiMois<=0 || !startDateVal) return null;
 
   const start = new Date(startDateVal+'T00:00:00');
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1567,12 +1663,10 @@ function renderDelaiAnalysis(c, globalPct){
   const remainingDays = Math.max(0, Math.floor((deadline - today) / 86400000));
   const timePct = Math.min(100, (elapsedDays/totalDays)*100);
 
-  // Écart avancement réel vs théorique (temps écoulé)
   const ecart = globalPct - timePct;
-  const enRetard = ecart < -2; // tolérance 2 points
+  const enRetard = ecart < -2;
   const enAvance = ecart > 2;
 
-  // Cadences quotidiennes nécessaires pour finir chaque phase à temps
   const totalLinear = Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const totalBranch = c.branch.DN32+c.branch.DN50;
   const totalRemise = Object.values(c.remise).reduce((a,b)=>a+b,0);
@@ -1584,11 +1678,8 @@ function renderDelaiAnalysis(c, globalPct){
     {name:'Branchements',    restant: Math.max(0, projectTargets.branchements - totalBranch), unit:'u', target: projectTargets.branchements},
     {name:'Remise en état',  restant: Math.max(0, projectTargets.remiseEtat - totalRemise),    unit:'m', target: projectTargets.remiseEtat},
     {name:'Raccordements',   restant: Math.max(0, projectTargets.raccordements - totalRacc),   unit:'u', target: projectTargets.raccordements},
-  ].filter(c=>c.target>0);
+  ].filter(cd=>cd.target>0).map(cd=>({...cd, cadenceJour: cd.restant / remainingDaysSafe}));
 
-  const fmtDate = d => d.toLocaleDateString('fr-FR');
-
-  // Statut global
   let statusBadge, statusIcon, statusColor, statusBg, statusMsg;
   if(remainingDays<=0 && globalPct<100){
     statusBadge='DÉLAI DÉPASSÉ'; statusIcon='fa-circle-exclamation'; statusColor='#dc2626'; statusBg='#fef2f2';
@@ -1604,30 +1695,47 @@ function renderDelaiAnalysis(c, globalPct){
     statusMsg='L\'avancement réel ('+globalPct.toFixed(1)+'%) correspond à l\'avancement théorique attendu ('+timePct.toFixed(1)+'%).';
   }
 
+  return {
+    delaiMois: projectTargets.delaiMois, totalDays, elapsedDays, remainingDays, deadline, start, today,
+    timePct, globalPct, ecart, enRetard, enAvance, cadences, remainingDaysSafe,
+    statusBadge, statusIcon, statusColor, statusBg, statusMsg
+  };
+}
+
+function renderDelaiAnalysis(c, globalPct){
+  const section = document.getElementById('delai-section');
+  const content = document.getElementById('delai-content');
+
+  const a = computeDelaiAnalysis(c, globalPct);
+  if(!a){ section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+
+  const fmtDate = d => d.toLocaleDateString('fr-FR');
+
   let html = `
-    <div class="p-3 rounded-xl mb-3" style="background:${statusBg};border:1px solid ${statusColor}33;">
+    <div class="p-3 rounded-xl mb-3" style="background:${a.statusBg};border:1px solid ${a.statusColor}33;">
       <div class="flex items-center gap-2 mb-1.5">
-        <i class="fa-solid ${statusIcon}" style="color:${statusColor}"></i>
-        <span class="text-sm font-black" style="color:${statusColor}">${statusBadge}</span>
+        <i class="fa-solid ${a.statusIcon}" style="color:${a.statusColor}"></i>
+        <span class="text-sm font-black" style="color:${a.statusColor}">${a.statusBadge}</span>
       </div>
-      <p class="text-xs text-gray-600 leading-relaxed">${statusMsg}</p>
+      <p class="text-xs text-gray-600 leading-relaxed">${a.statusMsg}</p>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
       <div class="p-2.5 rounded-xl text-center" style="background:var(--srm-blue-light);border:1px solid #b8d9f0">
-        <p class="text-lg font-black" style="color:var(--srm-blue-dark)">${projectTargets.delaiMois}</p>
+        <p class="text-lg font-black" style="color:var(--srm-blue-dark)">${a.delaiMois}</p>
         <p class="text-[10px] font-semibold text-gray-500">Délai (mois)</p>
       </div>
       <div class="p-2.5 rounded-xl text-center" style="background:var(--srm-green-light);border:1px solid #b3e0ba">
-        <p class="text-lg font-black" style="color:var(--srm-green-dark)">${elapsedDays}</p>
-        <p class="text-[10px] font-semibold text-gray-500">Jours écoulés / ${totalDays}</p>
+        <p class="text-lg font-black" style="color:var(--srm-green-dark)">${a.elapsedDays}</p>
+        <p class="text-[10px] font-semibold text-gray-500">Jours écoulés / ${a.totalDays}</p>
       </div>
-      <div class="p-2.5 rounded-xl text-center" style="background:${remainingDays<=0?'#fef2f2':'var(--srm-orange-light)'};border:1px solid ${remainingDays<=0?'#fecaca':'#f9c9a0'}">
-        <p class="text-lg font-black" style="color:${remainingDays<=0?'#dc2626':'var(--srm-orange-dark)'}">${remainingDays}</p>
+      <div class="p-2.5 rounded-xl text-center" style="background:${a.remainingDays<=0?'#fef2f2':'var(--srm-orange-light)'};border:1px solid ${a.remainingDays<=0?'#fecaca':'#f9c9a0'}">
+        <p class="text-lg font-black" style="color:${a.remainingDays<=0?'#dc2626':'var(--srm-orange-dark)'}">${a.remainingDays}</p>
         <p class="text-[10px] font-semibold text-gray-500">Jours restants</p>
       </div>
       <div class="p-2.5 rounded-xl text-center" style="background:#f5f3ff;border:1px solid #ddd6fe">
-        <p class="text-lg font-black" style="color:#7c3aed">${fmtDate(deadline)}</p>
+        <p class="text-lg font-black" style="color:#7c3aed">${fmtDate(a.deadline)}</p>
         <p class="text-[10px] font-semibold text-gray-500">Date d'échéance</p>
       </div>
     </div>
@@ -1637,20 +1745,20 @@ function renderDelaiAnalysis(c, globalPct){
       <div>
         <div class="flex justify-between items-center mb-1">
           <span class="text-xs font-semibold text-gray-600">Avancement réel (travaux)</span>
-          <span class="text-xs font-black" style="color:${statusColor}">${globalPct.toFixed(1)}%</span>
+          <span class="text-xs font-black" style="color:${a.statusColor}">${a.globalPct.toFixed(1)}%</span>
         </div>
-        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${globalPct}%;background:${statusColor}"></div></div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${a.globalPct}%;background:${a.statusColor}"></div></div>
       </div>
       <div>
         <div class="flex justify-between items-center mb-1">
           <span class="text-xs font-semibold text-gray-600">Avancement théorique (temps écoulé)</span>
-          <span class="text-xs font-black text-gray-500">${timePct.toFixed(1)}%</span>
+          <span class="text-xs font-black text-gray-500">${a.timePct.toFixed(1)}%</span>
         </div>
-        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${timePct}%;background:#9ca3af"></div></div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${a.timePct}%;background:#9ca3af"></div></div>
       </div>
     </div>`;
 
-  if(remainingDays>0 && cadences.length){
+  if(a.remainingDays>0 && a.cadences.length){
     html += `<div class="rounded-xl overflow-hidden border" style="border-color:var(--srm-border)">
       <div class="px-3 py-2" style="background:linear-gradient(135deg,#7c3aed,#5b21b6)">
         <p class="text-xs font-bold text-white"><i class="fa-solid fa-gauge-high mr-1"></i>Cadence quotidienne requise pour respecter le délai</p>
@@ -1661,17 +1769,16 @@ function renderDelaiAnalysis(c, globalPct){
           <th class="p-2 font-semibold text-gray-500">Quantité restante</th>
           <th class="p-2 font-semibold text-gray-500">Cadence / jour requise</th>
         </tr></thead><tbody>`;
-    cadences.forEach((cd,i)=>{
-      const cadenceJour = cd.restant / remainingDaysSafe;
+    a.cadences.forEach((cd,i)=>{
       const bg = i%2===0 ? '' : 'background:#f7f9ff';
       html += `<tr style="${bg}">
         <td class="p-2 font-bold" style="color:var(--srm-text)">${cd.name}</td>
         <td class="p-2 text-center">${cd.restant.toFixed(2)} ${cd.unit}</td>
-        <td class="p-2 text-center font-black" style="color:#7c3aed">${cadenceJour.toFixed(2)} ${cd.unit}/j</td>
+        <td class="p-2 text-center font-black" style="color:#7c3aed">${cd.cadenceJour.toFixed(2)} ${cd.unit}/j</td>
       </tr>`;
     });
     html += `</tbody></table></div>`;
-  } else if(remainingDays<=0){
+  } else if(a.remainingDays<=0){
     html += `<div class="p-3 rounded-xl text-center text-xs font-bold" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca">
       <i class="fa-solid fa-circle-info mr-1"></i>Aucune cadence calculable : le délai est déjà dépassé.
     </div>`;
@@ -2050,6 +2157,119 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
   sigBox(14+bWs+sG,sY,'Représentant SRM-CS','Ingénieur responsable');
   ftr(1);
 
+  // ════ PAGE DÉLAI (si configuré) — basé sur l'avancement global cumulé total ════
+  const globalCumuls = getAggregatedCumuls();
+  const gTL=Object.values(globalCumuls.reseau).reduce((a,b)=>a+b,0);
+  const gTB=globalCumuls.branch.DN32+globalCumuls.branch.DN50;
+  const gTRem=Object.values(globalCumuls.remise).reduce((a,b)=>a+b,0);
+  const gTRac=globalCumuls.raccordements.r200+globalCumuls.raccordements.r300;
+  const gPhases=[
+    pctV(gTL,projectTargets.linearReseau),
+    pctV(gTB,projectTargets.branchements),
+    pctV(gTRem,projectTargets.remiseEtat),
+    pctV(gTRac,projectTargets.raccordements)
+  ].filter((_,i)=>[projectTargets.linearReseau,projectTargets.branchements,projectTargets.remiseEtat,projectTargets.raccordements][i]>0);
+  const gGlobalPct = gPhases.length ? gPhases.reduce((a,b)=>a+b,0)/gPhases.length : 0;
+
+  const delaiInfo = computeDelaiAnalysis(globalCumuls, gGlobalPct);
+  if(delaiInfo){
+    doc.addPage(); hdr();
+
+    doc.setFillColor(124,58,237);doc.roundedRect(14,20,pW-28,7,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
+    doc.text('ANALYSE DU DÉLAI CONTRACTUEL (AVANCEMENT GLOBAL)',pW/2,25,{align:'center'});
+    doc.setTextColor(...DARK);
+
+    let Yd=30;
+    const fmtDateFR = d => d.toLocaleDateString('fr-FR');
+
+    // Status banner
+    const scHex = delaiInfo.statusColor.replace('#','');
+    const scRgb = [parseInt(scHex.substring(0,2),16), parseInt(scHex.substring(2,4),16), parseInt(scHex.substring(4,6),16)];
+    doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);
+    doc.roundedRect(14,Yd,pW-28,16,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont(undefined,'bold');
+    doc.text(delaiInfo.statusBadge,18,Yd+6.5);
+    doc.setFontSize(7.5);doc.setFont(undefined,'normal');
+    const msgLines = doc.splitTextToSize(delaiInfo.statusMsg, pW-40);
+    doc.text(msgLines, 18, Yd+11.5);
+    doc.setTextColor(...DARK);
+    Yd += 16 + (msgLines.length>1?4:0) + 6;
+
+    // KPI cards
+    const kpiW=(pW-28-3*4)/4, kpiH=18;
+    const kpis=[
+      {val:delaiInfo.delaiMois+' mois', lbl:'Délai contractuel', col:B, bg:LB},
+      {val:delaiInfo.elapsedDays+' / '+delaiInfo.totalDays, lbl:'Jours écoulés / total', col:G, bg:[234,247,236]},
+      {val:String(delaiInfo.remainingDays), lbl:'Jours restants', col:(delaiInfo.remainingDays<=0?[220,38,38]:O), bg:(delaiInfo.remainingDays<=0?[254,242,242]:[254,243,235])},
+      {val:fmtDateFR(delaiInfo.deadline), lbl:"Date d'échéance", col:[124,58,237], bg:[245,243,255]}
+    ];
+    kpis.forEach((k,i)=>{
+      const x=14+i*(kpiW+4);
+      doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,2,2,'F');
+      doc.setTextColor(...k.col);doc.setFontSize(10);doc.setFont(undefined,'bold');
+      doc.text(k.val,x+kpiW/2,Yd+8,{align:'center'});
+      doc.setFontSize(6);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
+      doc.text(k.lbl,x+kpiW/2,Yd+14,{align:'center'});
+    });
+    doc.setTextColor(...DARK);
+    Yd += kpiH + 8;
+
+    // Avancement réel vs théorique bars
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
+    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT RÉEL vs THÉORIQUE (CUMUL GLOBAL DU PROJET)',16,Yd+4.2);
+    doc.setTextColor(...DARK);Yd+=9;
+
+    const dbW=pW-28, dbH=5, dbX=14;
+    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement réel (travaux)',dbX,Yd+3.5);
+    doc.setFont(undefined,'normal');doc.setTextColor(...scRgb);
+    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    let f1=Math.max(0,delaiInfo.globalPct/100*dbW);
+    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+5,f1,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=13;
+
+    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+3.5);
+    doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
+    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    let f2=Math.max(0,delaiInfo.timePct/100*dbW);
+    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+5,f2,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=16;
+
+    // Cadences table
+    if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
+      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DÉLAI',16,Yd+4.2);
+      doc.setTextColor(...DARK);Yd+=8;
+
+      const cadBody = delaiInfo.cadences.map(cd=>[
+        cd.name, cd.restant.toFixed(2)+' '+cd.unit, cd.cadenceJour.toFixed(2)+' '+cd.unit+'/jour'
+      ]);
+      doc.autoTable({
+        head:[['Phase','Quantité restante','Cadence/jour requise']],
+        body:cadBody, startY:Yd,
+        styles:{fontSize:8,cellPadding:2.5,halign:'center'},
+        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold'},
+        alternateRowStyles:{fillColor:[247,251,255]},
+        columnStyles:{0:{halign:'left',fontStyle:'bold'},2:{fontStyle:'bold',textColor:[124,58,237]}},
+        margin:{left:14,right:14},tableWidth:pW-28
+      });
+      Yd = doc.lastAutoTable.finalY + 4;
+    } else if(delaiInfo.remainingDays<=0){
+      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,10,2,2,'F');
+      doc.setTextColor(220,38,38);doc.setFontSize(8);doc.setFont(undefined,'bold');
+      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+6.5,{align:'center'});
+      doc.setTextColor(...DARK);Yd+=14;
+    }
+
+    ftr(doc.getNumberOfPages());
+  }
+
   // PAGE 2 — Registre filtré
   doc.addPage(); hdr();
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,7,2,2,'F');
@@ -2074,7 +2294,7 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
     alternateRowStyles:{fillColor:[247,251,255]},
     columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:18},3:{cellWidth:22},4:{cellWidth:34},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:25}},
     margin:{left:14,right:14},
-    didDrawPage:function(){if(doc.getNumberOfPages()>2){hdr();}ftr(doc.getNumberOfPages());}
+    didDrawPage:function(){if(doc.getNumberOfPages()>(delaiInfo?3:2)){hdr();}ftr(doc.getNumberOfPages());}
   });
 
   const safeName=(proj||'STATS').replace(/[^a-zA-Z0-9_]/g,'_');
