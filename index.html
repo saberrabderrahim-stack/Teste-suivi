@@ -793,6 +793,7 @@ const LOGO_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAC0CAMAAACJ
 
 // ════════════════════════════ STATE ════════════════════════════
 let records = JSON.parse(localStorage.getItem('water_project_records')) || [];
+if(typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 let capturedPhotos = JSON.parse(localStorage.getItem('water_project_photos')) || [];
 let autoCapturedLocation = { text:"Non disponible", mapsUrl:"" };
 let loadedFileName = null;
@@ -992,55 +993,84 @@ function getDailyCumulativeSeries(recs){
   let cR=0,cB=0,cRem=0,cRac=0;
   const series = dates.map(d=>{
     const dr = recs.filter(r=>r.dateStr===d);
-    cR   += dr.filter(r=>r.category==='Réseau').reduce((s,r)=>s+(r.distance||0),0);
-    cB   += dr.filter(r=>r.category==='Branchements').reduce((s,r)=>s+(r.br_dn32_qty||0)+(r.br_dn50_qty||0),0);
-    cRem += dr.filter(r=>r.category==='Remise en état').reduce((s,r)=>s+(r.distance||0),0);
-    cRac += dr.filter(r=>r.category==='Mise en service'&&r.ms_data).reduce((s,r)=>s+(r.ms_data.r200||0)+(r.ms_data.r300||0),0);
-    return {date:d, reseau:cR, branch:cB, remise:cRem, racc:cRac};
+    const dR   = dr.filter(r=>r.category==='Réseau').reduce((s,r)=>s+(r.distance||0),0);
+    const dB   = dr.filter(r=>r.category==='Branchements').reduce((s,r)=>s+(r.br_dn32_qty||0)+(r.br_dn50_qty||0),0);
+    const dRem = dr.filter(r=>r.category==='Remise en état').reduce((s,r)=>s+(r.distance||0),0);
+    const dRac = dr.filter(r=>r.category==='Mise en service'&&r.ms_data).reduce((s,r)=>s+(r.ms_data.r200||0)+(r.ms_data.r300||0),0);
+    cR+=dR; cB+=dB; cRem+=dRem; cRac+=dRac;
+    return {date:d, reseau:cR, branch:cB, remise:cRem, racc:cRac,
+            dReseau:dR, dBranch:dB, dRemise:dRem, dRacc:dRac};
   });
   return {dates, series};
 }
 
-// ════ Génère une image (dataURL) d'un graphique ligne via un canvas caché ════
-function renderTimelineChartImage(dates, series, opts){
+// ════ Génère 4 mini-graphiques (valeurs journalières, avec labels) en grille 2x2 ════
+async function renderDailyMiniCharts(dates, series, opts){
   opts = opts || {};
-  const w = opts.width || 900, h = opts.height || 420;
-  const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
-  cv.style.position='fixed'; cv.style.left='-9999px'; cv.style.top='-9999px';
-  document.body.appendChild(cv);
-
+  const cellW = opts.cellWidth || 560, cellH = opts.cellHeight || 320;
   const labels = dates.map(d=>{ const p=d.split('-'); return p[2]+'/'+p[1]; });
 
-  const datasets = [
-    {label:'Réseau (m)',        data:series.map(s=>s.reseau.toFixed(2)), borderColor:'#2B7FC1', backgroundColor:'rgba(43,127,193,0.08)', tension:0.3, fill:false, pointRadius:2, borderWidth:2.5},
-    {label:'Branchements (u)',  data:series.map(s=>s.branch.toFixed(2)), borderColor:'#4DB05B', backgroundColor:'rgba(77,176,91,0.08)', tension:0.3, fill:false, pointRadius:2, borderWidth:2.5},
-    {label:'Remise en état (m)',data:series.map(s=>s.remise.toFixed(2)), borderColor:'#E8823E', backgroundColor:'rgba(232,130,62,0.08)', tension:0.3, fill:false, pointRadius:2, borderWidth:2.5},
-    {label:'Raccordements (u)', data:series.map(s=>s.racc.toFixed(2)),   borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,0.08)', tension:0.3, fill:false, pointRadius:2, borderWidth:2.5}
+  const configs = [
+    {key:'dReseau', title:'Réseau (m/jour)',         color:'#2B7FC1', bg:'rgba(43,127,193,0.10)', unit:'m'},
+    {key:'dBranch', title:'Branchements (u/jour)',   color:'#4DB05B', bg:'rgba(77,176,91,0.10)',  unit:'u'},
+    {key:'dRemise', title:'Remise en état (m/jour)', color:'#E8823E', bg:'rgba(232,130,62,0.10)', unit:'m'},
+    {key:'dRacc',   title:'Raccordements (u/jour)',  color:'#7c3aed', bg:'rgba(124,58,237,0.10)', unit:'u'}
   ];
 
-  const chart = new Chart(cv, {
-    type:'line',
-    data:{labels, datasets},
-    options:{
-      responsive:false, animation:false, devicePixelRatio:2,
-      plugins:{
-        legend:{position:'bottom', labels:{font:{size:13},boxWidth:14}},
-        datalabels:{display:false}
-      },
-      scales:{
-        x:{ticks:{font:{size:11},maxTicksLimit:12}},
-        y:{ticks:{font:{size:11}}, beginAtZero:true}
-      }
-    }
-  });
+  async function renderOne(cfg){
+    const cv = document.createElement('canvas');
+    cv.width = cellW; cv.height = cellH;
+    cv.style.position='fixed'; cv.style.left='-9999px'; cv.style.top='-9999px';
+    document.body.appendChild(cv);
 
-  // Chart.js needs a tick to render before reading dataURL
-  chart.update();
-  const dataUrl = cv.toDataURL('image/png', 1.0);
-  chart.destroy();
-  document.body.removeChild(cv);
-  return dataUrl;
+    const data = series.map(s => Math.round((s[cfg.key]||0)*100)/100);
+
+    const chart = new Chart(cv, {
+      type:'line',
+      data:{
+        labels,
+        datasets:[{
+          label:cfg.title, data,
+          borderColor:cfg.color, backgroundColor:cfg.bg,
+          tension:0.3, fill:true, pointRadius:3, pointBackgroundColor:cfg.color,
+          borderWidth:2.5
+        }]
+      },
+      options:{
+        responsive:false, animation:false, devicePixelRatio:2,
+        layout:{padding:{top:26}},
+        plugins:{
+          legend:{display:false},
+          title:{display:true, text:cfg.title, font:{size:15,weight:'bold'}, color:'#1e2d3d', padding:{bottom:10}},
+          datalabels:{
+            display:c=>c.dataset.data[c.dataIndex]>0,
+            align:'top', anchor:'end',
+            color:cfg.color, font:{size:11,weight:'bold'},
+            formatter:v=>v>0?(v%1===0?v:v.toFixed(2))+cfg.unit:''
+          }
+        },
+        scales:{
+          x:{ticks:{font:{size:10},maxTicksLimit:10}},
+          y:{ticks:{font:{size:10}}, beginAtZero:true, suggestedMax: Math.max(...data,1)*1.25}
+        }
+      },
+      plugins:[ChartDataLabels]
+    });
+
+    // Allow render tick
+    await new Promise(r=>setTimeout(r,50));
+    chart.update();
+    const dataUrl = cv.toDataURL('image/png', 1.0);
+    chart.destroy();
+    document.body.removeChild(cv);
+    return dataUrl;
+  }
+
+  const images = [];
+  for(const cfg of configs){
+    images.push(await renderOne(cfg));
+  }
+  return images; // [reseauImg, branchImg, remiseImg, raccImg]
 }
 
 
@@ -1218,12 +1248,11 @@ function exportToPDF(){
 
   showToast('Génération du PDF en cours...');
   fetchQR(qrContent, function(qrDataUrl){
-    try{ _doPDF(qrDataUrl); }
-    catch(err){ console.error('PDF error:',err); showToast('Erreur PDF: '+err.message,'error'); }
+    _doPDF(qrDataUrl).catch(err=>{ console.error('PDF error:',err); showToast('Erreur PDF: '+err.message,'error'); });
   });
 }
 
-function _doPDF(qrDataUrl){
+async function _doPDF(qrDataUrl){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF('p','mm','a4');
   const proj=document.getElementById('global-project-name').value||'Non spécifié';
@@ -1502,32 +1531,37 @@ function _doPDF(qrDataUrl){
       doc.setTextColor(...DARK);Yd+=14;
     }
 
-    // ── PRODUCTION LINÉAIRE CUMULÉE DANS LE TEMPS ──
+    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE ──
     const {dates:tlDates, series:tlSeries} = getDailyCumulativeSeries(records);
-    if(tlDates.length>=2){
-      const chartH = 62;
-      if(Yd + chartH + 10 > pH - 12){
+    if(tlDates.length>=1){
+      const gridH = 100; // hauteur totale de la grille 2x2
+      if(Yd + gridH + 10 > pH - 12){
         ftr(doc.getNumberOfPages());
         doc.addPage(); hdr(doc.getNumberOfPages());
         Yd = 25;
       }
       doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
       doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
-      doc.text('PRODUCTION LINÉAIRE CUMULÉE DANS LE TEMPS',16,Yd+4.2);
+      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+4.2);
       doc.setTextColor(...DARK);Yd+=8;
 
       try{
-        const imgData = renderTimelineChartImage(tlDates, tlSeries);
-        doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
-        doc.roundedRect(14,Yd,pW-28,chartH,1,1);
-        doc.addImage(imgData,'PNG',15,Yd+1,pW-30,chartH-2);
+        const imgs = await renderDailyMiniCharts(tlDates, tlSeries);
+        const gW = (pW-28-6)/2, gH = (gridH-6)/2;
+        const positions = [[14,Yd],[14+gW+6,Yd],[14,Yd+gH+6],[14+gW+6,Yd+gH+6]];
+        imgs.forEach((img,i)=>{
+          const [px,py] = positions[i];
+          doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
+          doc.roundedRect(px,py,gW,gH,1,1);
+          if(img){ try{ doc.addImage(img,'PNG',px+0.5,py+0.5,gW-1,gH-1); }catch(e){} }
+        });
       }catch(e){
-        console.error('Timeline chart render error', e);
+        console.error('Mini charts render error', e);
         doc.setFontSize(7);doc.setTextColor(180,180,180);
-        doc.text('Graphique indisponible',pW/2,Yd+chartH/2,{align:'center'});
+        doc.text('Graphiques indisponibles',pW/2,Yd+gridH/2,{align:'center'});
         doc.setTextColor(...DARK);
       }
-      Yd += chartH + 6;
+      Yd += gridH + 6;
     }
 
     // Signatures placed on this page (page 2) — push to new page if needed
@@ -2112,12 +2146,12 @@ function exportStatsPDF(){
 
   showToast('Génération du PDF statistiques...');
   fetchQR(qrContent, function(qrDataUrl){
-    try{ _doStatsPDF(qrDataUrl, c, filtered, proj_name, user_name, from, to, dateStr, timeStr, fmtDate, _tL, _tB, _tRem, _tRac, _pct); }
-    catch(err){ console.error(err); showToast('Erreur PDF: '+err.message,'error'); }
+    _doStatsPDF(qrDataUrl, c, filtered, proj_name, user_name, from, to, dateStr, timeStr, fmtDate, _tL, _tB, _tRem, _tRac, _pct)
+      .catch(err=>{ console.error(err); showToast('Erreur PDF: '+err.message,'error'); });
   });
 }
 
-function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, timeStr, fmtDate, tL, tB, tRem, tRac, pct){
+async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, timeStr, fmtDate, tL, tB, tRem, tRac, pct){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF('p','mm','a4');
   const pW=doc.internal.pageSize.getWidth(), pH=doc.internal.pageSize.getHeight();
@@ -2371,32 +2405,37 @@ function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateStr, tim
       doc.setTextColor(...DARK);Yd+=14;
     }
 
-    // ── PRODUCTION LINÉAIRE CUMULÉE DANS LE TEMPS (période filtrée) ──
+    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE (période filtrée) ──
     const {dates:tlDates, series:tlSeries} = getDailyCumulativeSeries(filtered);
-    if(tlDates.length>=2){
-      const chartH = 62;
-      if(Yd + chartH + 10 > pH - 12){
+    if(tlDates.length>=1){
+      const gridH = 100;
+      if(Yd + gridH + 10 > pH - 12){
         ftr(doc.getNumberOfPages());
         doc.addPage(); hdr();
         Yd = 25;
       }
       doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
       doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
-      doc.text('PRODUCTION LINÉAIRE CUMULÉE DANS LE TEMPS',16,Yd+4.2);
+      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+4.2);
       doc.setTextColor(...DARK);Yd+=8;
 
       try{
-        const imgData = renderTimelineChartImage(tlDates, tlSeries);
-        doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
-        doc.roundedRect(14,Yd,pW-28,chartH,1,1);
-        doc.addImage(imgData,'PNG',15,Yd+1,pW-30,chartH-2);
+        const imgs = await renderDailyMiniCharts(tlDates, tlSeries);
+        const gW = (pW-28-6)/2, gH = (gridH-6)/2;
+        const positions = [[14,Yd],[14+gW+6,Yd],[14,Yd+gH+6],[14+gW+6,Yd+gH+6]];
+        imgs.forEach((img,i)=>{
+          const [px,py] = positions[i];
+          doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
+          doc.roundedRect(px,py,gW,gH,1,1);
+          if(img){ try{ doc.addImage(img,'PNG',px+0.5,py+0.5,gW-1,gH-1); }catch(e){} }
+        });
       }catch(e){
-        console.error('Timeline chart render error', e);
+        console.error('Mini charts render error', e);
         doc.setFontSize(7);doc.setTextColor(180,180,180);
-        doc.text('Graphique indisponible',pW/2,Yd+chartH/2,{align:'center'});
+        doc.text('Graphiques indisponibles',pW/2,Yd+gridH/2,{align:'center'});
         doc.setTextColor(...DARK);
       }
-      Yd += chartH + 6;
+      Yd += gridH + 6;
     }
 
     // Signatures placed on this page (page 2) — push to new page if needed
