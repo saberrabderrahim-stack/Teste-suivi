@@ -1443,24 +1443,24 @@ async function _doPDF(qrDataUrl){
     doc.text('ANALYSE DU DÉLAI CONTRACTUEL',pW/2,25,{align:'center'});
     doc.setTextColor(...DARK);
 
-    let Yd=30;
+    let Yd=29;
     const fmtDateFR = d => d.toLocaleDateString('fr-FR');
 
-    // Status banner
+    // Status banner (compact)
     const scHex = delaiInfo.statusColor.replace('#','');
     const scRgb = [parseInt(scHex.substring(0,2),16), parseInt(scHex.substring(2,4),16), parseInt(scHex.substring(4,6),16)];
     doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);
-    doc.roundedRect(14,Yd,pW-28,16,2,2,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont(undefined,'bold');
-    doc.text(delaiInfo.statusBadge,18,Yd+6.5);
-    doc.setFontSize(7.5);doc.setFont(undefined,'normal');
+    doc.roundedRect(14,Yd,pW-28,11,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
+    doc.text(delaiInfo.statusBadge,18,Yd+4.5);
+    doc.setFontSize(6);doc.setFont(undefined,'normal');
     const msgLines = doc.splitTextToSize(delaiInfo.statusMsg, pW-40);
-    doc.text(msgLines, 18, Yd+11.5);
+    doc.text(msgLines.slice(0,2), 18, Yd+8);
     doc.setTextColor(...DARK);
-    Yd += 16 + (msgLines.length>1?4:0) + 6;
+    Yd += 11 + 4;
 
-    // KPI cards
-    const kpiW=(pW-28-3*4)/4, kpiH=18;
+    // KPI cards (compact)
+    const kpiW=(pW-28-3*3)/4, kpiH=13;
     const kpis=[
       {val:delaiInfo.delaiMois+' mois', lbl:'Délai contractuel', col:B, bg:LB},
       {val:delaiInfo.elapsedDays+' / '+delaiInfo.totalDays, lbl:'Jours écoulés / total', col:G, bg:[234,247,236]},
@@ -1468,48 +1468,48 @@ async function _doPDF(qrDataUrl){
       {val:fmtDateFR(delaiInfo.deadline), lbl:"Date d'échéance", col:[124,58,237], bg:[245,243,255]}
     ];
     kpis.forEach((k,i)=>{
-      const x=14+i*(kpiW+4);
-      doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,2,2,'F');
-      doc.setTextColor(...k.col);doc.setFontSize(10);doc.setFont(undefined,'bold');
-      doc.text(k.val,x+kpiW/2,Yd+8,{align:'center'});
-      doc.setFontSize(6);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
-      doc.text(k.lbl,x+kpiW/2,Yd+14,{align:'center'});
+      const x=14+i*(kpiW+3);
+      doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,1.5,1.5,'F');
+      doc.setTextColor(...k.col);doc.setFontSize(8);doc.setFont(undefined,'bold');
+      doc.text(k.val,x+kpiW/2,Yd+5.5,{align:'center'});
+      doc.setFontSize(5);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
+      doc.text(k.lbl,x+kpiW/2,Yd+10,{align:'center'});
     });
     doc.setTextColor(...DARK);
-    Yd += kpiH + 8;
+    Yd += kpiH + 5;
 
-    // Avancement réel vs théorique bars
-    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('AVANCEMENT RÉEL vs THÉORIQUE',16,Yd+4.2);
-    doc.setTextColor(...DARK);Yd+=9;
+    // Avancement réel vs théorique bars (compact)
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,5,1,1,'F');
+    doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT RÉEL vs THÉORIQUE',16,Yd+3.5);
+    doc.setTextColor(...DARK);Yd+=7;
 
-    const dbW=pW-28, dbH=5, dbX=14;
+    const dbW=pW-28, dbH=3.5, dbX=14;
     // Réel
-    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement réel (travaux)',dbX,Yd+3.5);
+    doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement réel (travaux)',dbX,Yd+2.8);
     doc.setFont(undefined,'normal');doc.setTextColor(...scRgb);
-    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+2.8,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+3.8,dbW,dbH,1,1,'F');
     let f1=Math.max(0,delaiInfo.globalPct/100*dbW);
-    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+5,f1,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=13;
+    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+3.8,f1,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=9.5;
     // Théorique
-    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+3.5);
+    doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+2.8);
     doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
-    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+2.8,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+3.8,dbW,dbH,1,1,'F');
     let f2=Math.max(0,delaiInfo.timePct/100*dbW);
-    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+5,f2,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=16;
+    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+3.8,f2,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=11;
 
-    // Cadences table
+    // Cadences table (compact)
     if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
-      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DÉLAI',16,Yd+4.2);
-      doc.setTextColor(...DARK);Yd+=8;
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,5,1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DÉLAI',16,Yd+3.5);
+      doc.setTextColor(...DARK);Yd+=6.5;
 
       const cadBody = delaiInfo.cadences.map(cd=>[
         cd.name, cd.restant.toFixed(2)+' '+cd.unit, cd.cadenceJour.toFixed(2)+' '+cd.unit+'/jour'
@@ -1517,38 +1517,33 @@ async function _doPDF(qrDataUrl){
       doc.autoTable({
         head:[['Phase','Quantité restante','Cadence/jour requise']],
         body:cadBody, startY:Yd,
-        styles:{fontSize:8,cellPadding:2.5,halign:'center'},
-        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold'},
+        styles:{fontSize:6.5,cellPadding:1.3,halign:'center'},
+        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold',fontSize:6.5},
         alternateRowStyles:{fillColor:[247,251,255]},
         columnStyles:{0:{halign:'left',fontStyle:'bold'},2:{fontStyle:'bold',textColor:[124,58,237]}},
         margin:{left:14,right:14},tableWidth:pW-28
       });
-      Yd = doc.lastAutoTable.finalY + 4;
+      Yd = doc.lastAutoTable.finalY + 3;
     } else if(delaiInfo.remainingDays<=0){
-      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,10,2,2,'F');
-      doc.setTextColor(220,38,38);doc.setFontSize(8);doc.setFont(undefined,'bold');
-      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+6.5,{align:'center'});
-      doc.setTextColor(...DARK);Yd+=14;
+      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,8,2,2,'F');
+      doc.setTextColor(220,38,38);doc.setFontSize(7);doc.setFont(undefined,'bold');
+      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+5.2,{align:'center'});
+      doc.setTextColor(...DARK);Yd+=11;
     }
 
-    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE ──
+    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE (compact) ──
     const {dates:tlDates, series:tlSeries} = getDailyCumulativeSeries(records);
     if(tlDates.length>=1){
-      const gridH = 100; // hauteur totale de la grille 2x2
-      if(Yd + gridH + 10 > pH - 12){
-        ftr(doc.getNumberOfPages());
-        doc.addPage(); hdr(doc.getNumberOfPages());
-        Yd = 25;
-      }
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
-      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+4.2);
-      doc.setTextColor(...DARK);Yd+=8;
+      const gridH = 68; // hauteur réduite de la grille 2x2
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,5,1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+3.5);
+      doc.setTextColor(...DARK);Yd+=6.5;
 
       try{
         const imgs = await renderDailyMiniCharts(tlDates, tlSeries);
-        const gW = (pW-28-6)/2, gH = (gridH-6)/2;
-        const positions = [[14,Yd],[14+gW+6,Yd],[14,Yd+gH+6],[14+gW+6,Yd+gH+6]];
+        const gW = (pW-28-4)/2, gH = (gridH-4)/2;
+        const positions = [[14,Yd],[14+gW+4,Yd],[14,Yd+gH+4],[14+gW+4,Yd+gH+4]];
         imgs.forEach((img,i)=>{
           const [px,py] = positions[i];
           doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
@@ -1557,22 +1552,29 @@ async function _doPDF(qrDataUrl){
         });
       }catch(e){
         console.error('Mini charts render error', e);
-        doc.setFontSize(7);doc.setTextColor(180,180,180);
+        doc.setFontSize(6);doc.setTextColor(180,180,180);
         doc.text('Graphiques indisponibles',pW/2,Yd+gridH/2,{align:'center'});
         doc.setTextColor(...DARK);
       }
-      Yd += gridH + 6;
+      Yd += gridH + 4;
     }
 
-    // Signatures placed on this page (page 2) — push to new page if needed
-    if(Yd + 32 > pH - 10){
-      ftr(doc.getNumberOfPages());
-      doc.addPage(); hdr(doc.getNumberOfPages());
-      Yd = 30;
+    // Signatures placed on this page (page 2) — compact, fits without extra page
+    const bWsC=83, bHsC=24, sGC=7;
+    function sigBoxCompact(x,y,title,sub){
+      doc.setDrawColor(180,200,220);doc.setLineWidth(0.4);doc.roundedRect(x,y,bWsC,bHsC,2,2);
+      doc.setFillColor(...LB);doc.roundedRect(x,y,bWsC,7,2,2,'F');doc.setFillColor(...LB);doc.rect(x,y+3.5,bWsC,3.5,'F');
+      doc.setTextColor(...B);doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.text(title,x+bWsC/2,y+5,{align:'center'});
+      doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(80,100,120);doc.text(sub||'',x+bWsC/2,y+9,{align:'center'});
+      doc.setTextColor(60,70,80);doc.setFontSize(6.5);
+      doc.text('Nom & Prénom : ...........................',x+3,y+14.5);
+      doc.text('Date : ......................................',x+3,y+18.5);
+      doc.text('Signature :',x+3,y+22.5);
+      doc.setDrawColor(180,200,220);doc.line(x+24,y+22.5,x+bWsC-3,y+22.5);
     }
-    const sY=Math.min(Math.max(Yd+2,244),254);
-    sigBox(sX1,sY,"Représentant de l'Entreprise",'Chef de chantier');
-    sigBox(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
+    const sY=Math.min(Yd+2, pH-bHsC-8);
+    sigBoxCompact(sX1,sY,"Représentant de l'Entreprise",'Chef de chantier');
+    sigBoxCompact(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
 
     ftr(doc.getNumberOfPages());
   } else {
@@ -2318,24 +2320,24 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
     doc.text('ANALYSE DU DÉLAI CONTRACTUEL (AVANCEMENT GLOBAL)',pW/2,25,{align:'center'});
     doc.setTextColor(...DARK);
 
-    let Yd=30;
+    let Yd=29;
     const fmtDateFR = d => d.toLocaleDateString('fr-FR');
 
-    // Status banner
+    // Status banner (compact)
     const scHex = delaiInfo.statusColor.replace('#','');
     const scRgb = [parseInt(scHex.substring(0,2),16), parseInt(scHex.substring(2,4),16), parseInt(scHex.substring(4,6),16)];
     doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);
-    doc.roundedRect(14,Yd,pW-28,16,2,2,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont(undefined,'bold');
-    doc.text(delaiInfo.statusBadge,18,Yd+6.5);
-    doc.setFontSize(7.5);doc.setFont(undefined,'normal');
+    doc.roundedRect(14,Yd,pW-28,11,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
+    doc.text(delaiInfo.statusBadge,18,Yd+4.5);
+    doc.setFontSize(6);doc.setFont(undefined,'normal');
     const msgLines = doc.splitTextToSize(delaiInfo.statusMsg, pW-40);
-    doc.text(msgLines, 18, Yd+11.5);
+    doc.text(msgLines.slice(0,2), 18, Yd+8);
     doc.setTextColor(...DARK);
-    Yd += 16 + (msgLines.length>1?4:0) + 6;
+    Yd += 11 + 4;
 
-    // KPI cards
-    const kpiW=(pW-28-3*4)/4, kpiH=18;
+    // KPI cards (compact)
+    const kpiW=(pW-28-3*3)/4, kpiH=13;
     const kpis=[
       {val:delaiInfo.delaiMois+' mois', lbl:'Délai contractuel', col:B, bg:LB},
       {val:delaiInfo.elapsedDays+' / '+delaiInfo.totalDays, lbl:'Jours écoulés / total', col:G, bg:[234,247,236]},
@@ -2343,47 +2345,47 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       {val:fmtDateFR(delaiInfo.deadline), lbl:"Date d'échéance", col:[124,58,237], bg:[245,243,255]}
     ];
     kpis.forEach((k,i)=>{
-      const x=14+i*(kpiW+4);
-      doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,2,2,'F');
-      doc.setTextColor(...k.col);doc.setFontSize(10);doc.setFont(undefined,'bold');
-      doc.text(k.val,x+kpiW/2,Yd+8,{align:'center'});
-      doc.setFontSize(6);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
-      doc.text(k.lbl,x+kpiW/2,Yd+14,{align:'center'});
+      const x=14+i*(kpiW+3);
+      doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,1.5,1.5,'F');
+      doc.setTextColor(...k.col);doc.setFontSize(8);doc.setFont(undefined,'bold');
+      doc.text(k.val,x+kpiW/2,Yd+5.5,{align:'center'});
+      doc.setFontSize(5);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
+      doc.text(k.lbl,x+kpiW/2,Yd+10,{align:'center'});
     });
     doc.setTextColor(...DARK);
-    Yd += kpiH + 8;
+    Yd += kpiH + 5;
 
-    // Avancement réel vs théorique bars
-    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('AVANCEMENT RÉEL vs THÉORIQUE (CUMUL GLOBAL DU PROJET)',16,Yd+4.2);
-    doc.setTextColor(...DARK);Yd+=9;
+    // Avancement réel vs théorique bars (compact)
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,5,1,1,'F');
+    doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT RÉEL vs THÉORIQUE (CUMUL GLOBAL DU PROJET)',16,Yd+3.5);
+    doc.setTextColor(...DARK);Yd+=7;
 
-    const dbW=pW-28, dbH=5, dbX=14;
-    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement réel (travaux)',dbX,Yd+3.5);
+    const dbW=pW-28, dbH=3.5, dbX=14;
+    doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement réel (travaux)',dbX,Yd+2.8);
     doc.setFont(undefined,'normal');doc.setTextColor(...scRgb);
-    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+2.8,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+3.8,dbW,dbH,1,1,'F');
     let f1=Math.max(0,delaiInfo.globalPct/100*dbW);
-    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+5,f1,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=13;
+    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+3.8,f1,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=9.5;
 
-    doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+3.5);
+    doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+2.8);
     doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
-    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+3.5,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+5,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+2.8,{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+3.8,dbW,dbH,1,1,'F');
     let f2=Math.max(0,delaiInfo.timePct/100*dbW);
-    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+5,f2,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=16;
+    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+3.8,f2,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=11;
 
-    // Cadences table
+    // Cadences table (compact)
     if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
-      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DÉLAI',16,Yd+4.2);
-      doc.setTextColor(...DARK);Yd+=8;
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,5,1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DÉLAI',16,Yd+3.5);
+      doc.setTextColor(...DARK);Yd+=6.5;
 
       const cadBody = delaiInfo.cadences.map(cd=>[
         cd.name, cd.restant.toFixed(2)+' '+cd.unit, cd.cadenceJour.toFixed(2)+' '+cd.unit+'/jour'
@@ -2391,38 +2393,33 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       doc.autoTable({
         head:[['Phase','Quantité restante','Cadence/jour requise']],
         body:cadBody, startY:Yd,
-        styles:{fontSize:8,cellPadding:2.5,halign:'center'},
-        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold'},
+        styles:{fontSize:6.5,cellPadding:1.3,halign:'center'},
+        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold',fontSize:6.5},
         alternateRowStyles:{fillColor:[247,251,255]},
         columnStyles:{0:{halign:'left',fontStyle:'bold'},2:{fontStyle:'bold',textColor:[124,58,237]}},
         margin:{left:14,right:14},tableWidth:pW-28
       });
-      Yd = doc.lastAutoTable.finalY + 4;
+      Yd = doc.lastAutoTable.finalY + 3;
     } else if(delaiInfo.remainingDays<=0){
-      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,10,2,2,'F');
-      doc.setTextColor(220,38,38);doc.setFontSize(8);doc.setFont(undefined,'bold');
-      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+6.5,{align:'center'});
-      doc.setTextColor(...DARK);Yd+=14;
+      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,8,2,2,'F');
+      doc.setTextColor(220,38,38);doc.setFontSize(7);doc.setFont(undefined,'bold');
+      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+5.2,{align:'center'});
+      doc.setTextColor(...DARK);Yd+=11;
     }
 
-    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE (période filtrée) ──
+    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE (période filtrée, compact) ──
     const {dates:tlDates, series:tlSeries} = getDailyCumulativeSeries(filtered);
     if(tlDates.length>=1){
-      const gridH = 100;
-      if(Yd + gridH + 10 > pH - 12){
-        ftr(doc.getNumberOfPages());
-        doc.addPage(); hdr();
-        Yd = 25;
-      }
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
-      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+4.2);
-      doc.setTextColor(...DARK);Yd+=8;
+      const gridH = 68;
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,5,1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+3.5);
+      doc.setTextColor(...DARK);Yd+=6.5;
 
       try{
         const imgs = await renderDailyMiniCharts(tlDates, tlSeries);
-        const gW = (pW-28-6)/2, gH = (gridH-6)/2;
-        const positions = [[14,Yd],[14+gW+6,Yd],[14,Yd+gH+6],[14+gW+6,Yd+gH+6]];
+        const gW = (pW-28-4)/2, gH = (gridH-4)/2;
+        const positions = [[14,Yd],[14+gW+4,Yd],[14,Yd+gH+4],[14+gW+4,Yd+gH+4]];
         imgs.forEach((img,i)=>{
           const [px,py] = positions[i];
           doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
@@ -2431,22 +2428,29 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
         });
       }catch(e){
         console.error('Mini charts render error', e);
-        doc.setFontSize(7);doc.setTextColor(180,180,180);
+        doc.setFontSize(6);doc.setTextColor(180,180,180);
         doc.text('Graphiques indisponibles',pW/2,Yd+gridH/2,{align:'center'});
         doc.setTextColor(...DARK);
       }
-      Yd += gridH + 6;
+      Yd += gridH + 4;
     }
 
-    // Signatures placed on this page (page 2) — push to new page if needed
-    if(Yd + 32 > pH - 10){
-      ftr(doc.getNumberOfPages());
-      doc.addPage(); hdr();
-      Yd = 30;
+    // Signatures placed on this page (page 2) — compact, fits without extra page
+    const bWsC=83, bHsC=24, sGC=7;
+    function sigBoxCompact(x,y,title,sub){
+      doc.setDrawColor(180,200,220);doc.setLineWidth(0.4);doc.roundedRect(x,y,bWsC,bHsC,2,2);
+      doc.setFillColor(...LB);doc.roundedRect(x,y,bWsC,7,2,2,'F');doc.setFillColor(...LB);doc.rect(x,y+3.5,bWsC,3.5,'F');
+      doc.setTextColor(...B);doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.text(title,x+bWsC/2,y+5,{align:'center'});
+      doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(80,100,120);doc.text(sub||'',x+bWsC/2,y+9,{align:'center'});
+      doc.setTextColor(60,70,80);doc.setFontSize(6.5);
+      doc.text('Nom & Prénom : ...........................',x+3,y+14.5);
+      doc.text('Date : ......................................',x+3,y+18.5);
+      doc.text('Signature :',x+3,y+22.5);
+      doc.setDrawColor(180,200,220);doc.line(x+24,y+22.5,x+bWsC-3,y+22.5);
     }
-    const sY=Math.min(Math.max(Yd+2,244),254);
-    sigBox(sX1,sY,"Représentant de l'Entreprise",'Chef de chantier');
-    sigBox(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
+    const sY=Math.min(Yd+2, pH-bHsC-8);
+    sigBoxCompact(sX1,sY,"Représentant de l'Entreprise",'Chef de chantier');
+    sigBoxCompact(sX2,sY,'Représentant SRM-CS','Ingénieur responsable');
 
     ftr(doc.getNumberOfPages());
   } else {
