@@ -799,6 +799,7 @@ let autoCapturedLocation = { text:"Non disponible", mapsUrl:"" };
 let loadedFileName = null;
 let currentUser = null;
 let projectTargets = { linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMois:0 };
+window._pTargets = projectTargets;
 
 const USERS = {
   "asaber":     { password:"Al@e16Lokmn23",  displayName:"A. SABER",     role:"Chargé d'Affaires" },
@@ -921,6 +922,7 @@ function importPreviousExcel(event){
         projectTargets.remiseEtat=parseFloat(ts[3]?ts[3][1]:0)||0;
         projectTargets.raccordements=parseFloat(ts[4]?ts[4][1]:0)||0;
         projectTargets.delaiMois=parseFloat(ts[5]?ts[5][1]:0)||0;
+        window._pTargets=projectTargets;
       }
       const sn=wb.SheetNames.includes("Registre Général")?"Registre Général":wb.SheetNames[0];
       const jd=XLSX.utils.sheet_to_json(wb.Sheets[sn]);
@@ -1593,6 +1595,10 @@ async function _doPDF(qrDataUrl){
 
     ftr(doc.getNumberOfPages());
   }
+
+  // ── Page recommandations ──
+  const _cumulsReco = getAggregatedCumuls();
+  addRecommendationsPage(doc, hdr, ftr, pW, pH, B, G, O, DARK, LB, GR, delaiInfo, _cumulsReco, gPct);
 
   // ════ PAGE 2 — REGISTRE JOURNALIER ════
   doc.addPage();
@@ -2469,6 +2475,10 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
     ftr(doc.getNumberOfPages());
   }
 
+  // ── Page recommandations ──
+  const _cumulsRecoS = getAggregatedCumuls();
+  addRecommendationsPage(doc, hdr, ftr, pW, pH, B, G, O, DARK, LB, GR, delaiInfo, _cumulsRecoS, gGlobalPct);
+
   // PAGE 2 — Registre filtré
   doc.addPage(); hdr();
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,7,2,2,'F');
@@ -3252,6 +3262,168 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   ftr(pageNum);
   doc.save('CONSOLIDATION_MULTI_PROJETS_'+dateStr.replace(/\//g,'-')+'.pdf');
   showToast('Rapport PDF Consolidation exporté !');
+}
+
+
+// ════ Ajouter une page de recommandations opérationnelles (7 phases) ════
+function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, GR, delaiInfo, cumuls, globalPct){
+  const P=[124,58,237], ORANGE=[232,130,62], RED=[220,38,38], GREEN=[34,197,94];
+
+  doc.addPage();
+  hdr_fn();
+
+  // Title strip
+  doc.setFillColor(P[0],P[1],P[2]);doc.roundedRect(14,20,pW-28,8,2,2,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont(undefined,'bold');
+  doc.text('RECOMMANDATIONS OPÉRATIONNELLES — PLAN D\'ACTION',pW/2,25.5,{align:'center'});
+  doc.setTextColor(...DARK);
+
+  let Y=32;
+
+  // Intro box
+  doc.setFillColor(245,243,255);doc.roundedRect(14,Y,pW-28,9,2,2,'F');
+  doc.setFontSize(7);doc.setFont(undefined,'normal');doc.setTextColor(80,60,120);
+  const remainingDays = delaiInfo ? delaiInfo.remainingDays : null;
+  const introText = delaiInfo
+    ? 'Afin de respecter le délai contractuel de '+delaiInfo.delaiMois+' mois (échéance : '+delaiInfo.deadline.toLocaleDateString('fr-FR')+'), les recommandations ci-dessous détaillent les actions à mener, phase par phase, avec les cadences requises.'
+    : 'Les recommandations ci-dessous détaillent les actions à mener pour chaque phase du projet afin d\'assurer une exécution conforme aux règles de l\'art.';
+  const introLines = doc.splitTextToSize(introText, pW-32);
+  doc.text(introLines,18,Y+4.5);
+  doc.setTextColor(...DARK);
+  Y += 9 + (introLines.length>1?2:0) + 4;
+
+  // Compute current state from cumuls
+  const totalLinear  = Object.values(cumuls.reseau).reduce((a,b)=>a+b,0);
+  const totalBranch  = cumuls.branch.DN32 + cumuls.branch.DN50;
+  const totalRemise  = Object.values(cumuls.remise).reduce((a,b)=>a+b,0);
+  const totalRacc    = cumuls.raccordements.r200 + cumuls.raccordements.r300;
+  const totalEssais  = cumuls.essais || 0;
+  const totalService = (cumuls.service.j32||0)+(cumuls.service.c1_32||0)+(cumuls.service.c2_32||0)+(cumuls.service.c3_32||0)+(cumuls.service.j50||0)+(cumuls.service.c1_50||0)+(cumuls.service.c2_50||0)+(cumuls.service.c3_50||0);
+
+  const pct=(v,t)=>t>0?Math.min(100,v/t*100):0;
+  const pctR  = pct(totalLinear, window._pTargets ? window._pTargets.linearReseau  : 0);
+  const pctB  = pct(totalBranch, window._pTargets ? window._pTargets.branchements  : 0);
+  const pctRem= pct(totalRemise, window._pTargets ? window._pTargets.remiseEtat    : 0);
+  const pctRac= pct(totalRacc,   window._pTargets ? window._pTargets.raccordements : 0);
+
+  const rdSafe = remainingDays !== null ? Math.max(1, remainingDays) : 1;
+  const cadR   = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.linearReseau||0)-totalLinear)/rdSafe).toFixed(2)+' m/j'  : '—';
+  const cadB   = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.branchements||0)-totalBranch)/rdSafe).toFixed(2)+' u/j'  : '—';
+  const cadRem = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.remiseEtat||0)-totalRemise)/rdSafe).toFixed(2)+' m/j'  : '—';
+  const cadRac = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.raccordements||0)-totalRacc)/rdSafe).toFixed(2)+' u/j'  : '—';
+
+  function statusColor(p){ return p>=100?[22,163,74]:p>=50?[217,119,6]:[220,38,38]; }
+  function statusLabel(p){ return p>=100?'✓ ACHEVÉ':p>0?'▶ EN COURS':'○ NON DÉMARRÉ'; }
+
+  const phases = [
+    {
+      num:1, color:B, title:'FOUILLES, POSE DES CONDUITES ET REMBLAIEMENT',
+      desc:'Exécuter les fouilles suivant le tracé défini, poser les conduites des différents diamètres avec les pièces spéciales, puis remblaier les tranchées selon les spécifications techniques adoptées.',
+      stat: totalLinear>0?pctR:0,
+      ind: 'Réseau posé : '+totalLinear.toFixed(2)+' m',
+      cadence: cadR
+    },
+    {
+      num:2, color:G, title:'RÉALISATION DES BRANCHEMENTS PARTICULIERS',
+      desc:'Après la pose des conduites, réaliser progressivement les branchements particuliers des abonnés au fur et à mesure de l\'avancement des travaux sur chaque tronçon de réseau.',
+      stat: totalBranch>0?pctB:0,
+      ind: 'Branchements réalisés : '+totalBranch+' u',
+      cadence: cadB
+    },
+    {
+      num:3, color:ORANGE, title:'ESSAIS TECHNIQUES (PRESSION & COMPACTAGE)',
+      desc:'À l\'achèvement de chaque tronçon, réaliser les essais obligatoires : essai de pression hydraulique (étanchéité, absence de fuites) et essai de compactage du remblai (respect des spécifications).',
+      stat: totalEssais>0?Math.min(100,(totalEssais/Math.max(totalLinear,1))*100):0,
+      ind: 'Linéaires testés : '+totalEssais.toFixed(2)+' m',
+      cadence: '—'
+    },
+    {
+      num:4, color:[80,120,160], title:'REMISE EN ÉTAT DE LA VOIRIE ET DES TROTTOIRS',
+      desc:'Après la réussite des essais, exécuter les travaux de remise en état de la voirie, des trottoirs et de tout équipement endommagé, en provisoire ou définitif selon le programme du projet.',
+      stat: totalRemise>0?pctRem:0,
+      ind: 'Remise en état : '+totalRemise.toFixed(2)+' m',
+      cadence: cadRem
+    },
+    {
+      num:5, color:[160,80,180], title:'RACCORDEMENTS ET JONCTIONS DE RÉSEAU',
+      desc:'Connecter les tronçons réalisés au réseau existant ou entre eux, afin d\'assurer la continuité hydraulique du réseau d\'alimentation en eau potable.',
+      stat: totalRacc>0?pctRac:0,
+      ind: 'Raccordements : '+totalRacc+' u',
+      cadence: cadRac
+    },
+    {
+      num:6, color:[20,150,130], title:'DÉSINFECTION ET RINÇAGE DE LA CONDUITE',
+      desc:'Après les raccordements, procéder à la désinfection de la conduite neuve puis à son rinçage, afin de s\'assurer de la conformité de la qualité de l\'eau aux normes sanitaires avant la mise en service.',
+      stat: totalService>0?Math.min(100,(totalService/Math.max(totalBranch,1))*100):0,
+      ind: 'Mises en service : '+totalService+' u',
+      cadence: '—'
+    },
+    {
+      num:7, color:[200,100,30], title:'MISE EN SERVICE ET TRANSFERT DES ABONNÉS',
+      desc:'Mettre en service la conduite neuve et transférer les branchements particuliers des abonnés de l\'ancien réseau vers le nouveau, en garantissant la continuité de l\'alimentation en eau potable sans interruption.',
+      stat: totalService>0?Math.min(100,(totalService/Math.max(totalBranch,1))*100):0,
+      ind: 'Abonnés transférés : '+totalService+' u',
+      cadence: '—'
+    }
+  ];
+
+  // Draw each phase as a compact row
+  phases.forEach((ph,idx)=>{
+    const rowH = 21;
+    if(Y + rowH + 4 > pH - 10){ ftr_fn(doc.getNumberOfPages()); doc.addPage(); hdr_fn(); Y=26; }
+
+    const sc = statusColor(ph.stat);
+    const sl = statusLabel(ph.stat);
+
+    // Number circle
+    doc.setFillColor(ph.color[0],ph.color[1],ph.color[2]);
+    doc.circle(18.5,Y+rowH/2,5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
+    doc.text(String(ph.num),18.5,Y+rowH/2+2.8,{align:'center'});
+
+    // Phase box
+    doc.setFillColor(idx%2===0?248:251,idx%2===0?250:249,idx%2===0?255:255);
+    doc.setDrawColor(ph.color[0],ph.color[1],ph.color[2]);doc.setLineWidth(0.3);
+    doc.roundedRect(25,Y,pW-39,rowH,1.5,1.5,'FD');
+
+    // Title
+    doc.setTextColor(ph.color[0],ph.color[1],ph.color[2]);
+    doc.setFontSize(7);doc.setFont(undefined,'bold');
+    doc.text(ph.title,28,Y+4.5);
+
+    // Description
+    doc.setTextColor(60,70,80);doc.setFontSize(5.8);doc.setFont(undefined,'normal');
+    const descLines = doc.splitTextToSize(ph.desc, pW-75);
+    doc.text(descLines.slice(0,2),28,Y+8.5);
+
+    // Indicator + cadence on the right
+    doc.setFontSize(6);doc.setFont(undefined,'bold');
+    doc.setTextColor(ph.color[0],ph.color[1],ph.color[2]);
+    doc.text(ph.ind,pW-25,Y+5.5,{align:'right'});
+    if(ph.cadence!=='—'){
+      doc.setTextColor(124,58,237);
+      doc.text('Cadence req. : '+ph.cadence,pW-25,Y+10,{align:'right'});
+    }
+
+    // Status badge
+    doc.setFillColor(...sc);doc.roundedRect(pW-38,Y+13.5,28,5,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont(undefined,'bold');
+    doc.text(sl,pW-24,Y+16.8,{align:'center'});
+
+    // Progress bar
+    const barW=pW-75, barH=3;
+    doc.setFillColor(220,228,238);doc.roundedRect(28,Y+15.5,barW,barH,1,1,'F');
+    if(ph.stat>0){
+      doc.setFillColor(...sc);
+      doc.roundedRect(28,Y+15.5,Math.max(1,ph.stat/100*barW),barH,1,1,'F');
+    }
+    doc.setFontSize(5);doc.setTextColor(...sc);
+    if(ph.stat>0) doc.text(ph.stat.toFixed(0)+'%',28+Math.max(1,ph.stat/100*barW)+1.5,Y+18,{align:'left'});
+
+    Y += rowH + 2.5;
+  });
+
+  ftr_fn(doc.getNumberOfPages());
 }
 
 </script>
