@@ -3267,32 +3267,67 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
 
 // ════ Ajouter une page de recommandations opérationnelles (7 phases) ════
 function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, GR, delaiInfo, cumuls, globalPct){
-  const P=[124,58,237], ORANGE=[232,130,62], RED=[220,38,38], GREEN=[34,197,94];
+  const P=[43,90,160];  // Dark institutional blue for compte-rendu
 
   doc.addPage();
   hdr_fn();
 
-  // Title strip
-  doc.setFillColor(P[0],P[1],P[2]);doc.roundedRect(14,20,pW-28,8,2,2,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont(undefined,'bold');
-  doc.text('RECOMMANDATIONS OPERATIONNELLES - PLAN D ACTION',pW/2,25.5,{align:'center'});
-  doc.setTextColor(...DARK);
+  // ── Institutional header block ──
+  let Y=21;
 
-  let Y=32;
+  // Double border line
+  doc.setDrawColor(...P);doc.setLineWidth(0.5);
+  doc.line(14,Y,pW-14,Y);
+  doc.line(14,Y+1,pW-14,Y+1);
+  Y+=4;
 
-  // Intro box
-  doc.setFillColor(245,243,255);doc.roundedRect(14,Y,pW-28,9,2,2,'F');
-  doc.setFontSize(7);doc.setFont(undefined,'normal');doc.setTextColor(80,60,120);
-  const remainingDays = delaiInfo ? delaiInfo.remainingDays : null;
+  // Title
+  doc.setTextColor(...P);doc.setFontSize(10);doc.setFont(undefined,'bold');
+  doc.text('COMPTE-RENDU OPERATIONNEL',pW/2,Y+5,{align:'center'});
+  Y+=7;
+  doc.setFontSize(8.5);doc.setFont(undefined,'normal');
+  doc.text('Suivi des phases de renouvellement du reseau AEP',pW/2,Y+4,{align:'center'});
+  Y+=6;
+  doc.setDrawColor(...P);doc.setLineWidth(0.5);
+  doc.line(14,Y,pW-14,Y);
+  doc.line(14,Y+1,pW-14,Y+1);
+  Y+=5;
+
+  // Metadata line
+  const now = new Date();
+  const proj = window._pTargets ? (document.getElementById('global-project-name')?.value||'Non specifie') : 'Non specifie';
+  const startDateVal = document.getElementById('project-start-date')?.value||'';
+  const startDisp = startDateVal ? startDateVal.split('-').reverse().join('/') : 'Non renseigne';
+
+  doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...P);
+  doc.text('Projet :',14,Y+4);doc.setFont(undefined,'normal');doc.text(proj,30,Y+4);
+  doc.setFont(undefined,'bold');doc.text('Debut travaux :',90,Y+4);doc.setFont(undefined,'normal');doc.text(startDisp,118,Y+4);
+  doc.setFont(undefined,'bold');doc.text('Date du CR :',145,Y+4);doc.setFont(undefined,'normal');doc.text(now.toLocaleDateString('fr-FR'),163,Y+4);
+  Y+=6;
+  doc.setFont(undefined,'bold');doc.text('Avancement global :',14,Y+4);
+  doc.setFont(undefined,'normal');doc.text(globalPct.toFixed(1)+'%',46,Y+4);
+  if(delaiInfo){
+    doc.setFont(undefined,'bold');doc.text('Delai contractuel :',70,Y+4);
+    doc.setFont(undefined,'normal');doc.text(delaiInfo.delaiMois+' mois',100,Y+4);
+    doc.setFont(undefined,'bold');doc.text('Jours restants :',120,Y+4);
+    doc.setFont(undefined,'normal');doc.text(String(delaiInfo.remainingDays)+' j',148,Y+4);
+    doc.setFont(undefined,'bold');doc.text('Echeance :',158,Y+4);
+    doc.setFont(undefined,'normal');doc.text(delaiInfo.deadline.toLocaleDateString('fr-FR'),175,Y+4);
+  }
+  Y+=5;
+  doc.setDrawColor(180,195,215);doc.setLineWidth(0.3);doc.line(14,Y,pW-14,Y);
+  Y+=5;
+
+  // Intro paragraph
+  doc.setFontSize(7);doc.setFont(undefined,'normal');doc.setTextColor(40,50,65);
   const introText = delaiInfo
-    ? 'Pour respecter le delai contractuel de '+delaiInfo.delaiMois+' mois (echeance : '+delaiInfo.deadline.toLocaleDateString('fr-FR')+'), les recommandations ci-dessous detaillent les actions a mener, phase par phase, avec les cadences requises.'
-    : 'Les recommandations ci-dessous detaillent les actions a mener pour chaque phase du projet afin d\'assurer une execution conforme aux regles de l\'art.';
-  const introLines = doc.splitTextToSize(introText, pW-32);
-  doc.text(introLines,18,Y+4.5);
-  doc.setTextColor(...DARK);
-  Y += 9 + (introLines.length>1?2:0) + 4;
+    ? 'Le present compte-rendu expose l\'etat d\'avancement des travaux de renouvellement du reseau AEP et formule les recommandations operationnelles necesssaires pour assurer l\'achevement du projet dans le delai contractuel de '+delaiInfo.delaiMois+' mois (echeance : '+delaiInfo.deadline.toLocaleDateString('fr-FR')+'). Il decrit, pour chacune des sept phases constitutives de l\'operation, la situation actuelle et les actions a mettre en oeuvre.'
+    : 'Le present compte-rendu expose l\'etat d\'avancement des travaux de renouvellement du reseau AEP et formule les recommandations operationnelles pour chaque phase de l\'operation.';
+  const introLines = doc.splitTextToSize(introText, pW-28);
+  doc.text(introLines,14,Y+3);
+  Y += introLines.length*3.5 + 5;
 
-  // Compute current state from cumuls
+  // Compute data
   const totalLinear  = Object.values(cumuls.reseau).reduce((a,b)=>a+b,0);
   const totalBranch  = cumuls.branch.DN32 + cumuls.branch.DN50;
   const totalRemise  = Object.values(cumuls.remise).reduce((a,b)=>a+b,0);
@@ -3300,128 +3335,187 @@ function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, 
   const totalEssais  = cumuls.essais || 0;
   const totalService = (cumuls.service.j32||0)+(cumuls.service.c1_32||0)+(cumuls.service.c2_32||0)+(cumuls.service.c3_32||0)+(cumuls.service.j50||0)+(cumuls.service.c1_50||0)+(cumuls.service.c2_50||0)+(cumuls.service.c3_50||0);
 
+  const T = window._pTargets || {};
   const pct=(v,t)=>t>0?Math.min(100,v/t*100):0;
-  const pctR  = pct(totalLinear, window._pTargets ? window._pTargets.linearReseau  : 0);
-  const pctB  = pct(totalBranch, window._pTargets ? window._pTargets.branchements  : 0);
-  const pctRem= pct(totalRemise, window._pTargets ? window._pTargets.remiseEtat    : 0);
-  const pctRac= pct(totalRacc,   window._pTargets ? window._pTargets.raccordements : 0);
+  const pctR   = pct(totalLinear, T.linearReseau||0);
+  const pctB   = pct(totalBranch, T.branchements||0);
+  const pctRem = pct(totalRemise, T.remiseEtat||0);
+  const pctRac = pct(totalRacc,   T.raccordements||0);
 
-  const rdSafe = remainingDays !== null ? Math.max(1, remainingDays) : 1;
-  const cadR   = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.linearReseau||0)-totalLinear)/rdSafe).toFixed(2)+' m/j'  : '—';
-  const cadB   = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.branchements||0)-totalBranch)/rdSafe).toFixed(2)+' u/j'  : '—';
-  const cadRem = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.remiseEtat||0)-totalRemise)/rdSafe).toFixed(2)+' m/j'  : '—';
-  const cadRac = remainingDays>0 && window._pTargets ? (Math.max(0, (window._pTargets.raccordements||0)-totalRacc)/rdSafe).toFixed(2)+' u/j'  : '—';
+  const rdSafe = delaiInfo ? Math.max(1,delaiInfo.remainingDays) : 1;
+  const rd = delaiInfo && delaiInfo.remainingDays>0;
+  const cadR   = rd && T.linearReseau   ? (Math.max(0,(T.linearReseau  -totalLinear) /rdSafe)).toFixed(2)+' m/jour'  : null;
+  const cadB   = rd && T.branchements   ? (Math.max(0,(T.branchements  -totalBranch) /rdSafe)).toFixed(2)+' u/jour'  : null;
+  const cadRem = rd && T.remiseEtat     ? (Math.max(0,(T.remiseEtat    -totalRemise) /rdSafe)).toFixed(2)+' m/jour'  : null;
+  const cadRac = rd && T.raccordements  ? (Math.max(0,(T.raccordements -totalRacc)   /rdSafe)).toFixed(2)+' u/jour'  : null;
 
-  function statusColor(p){ return p>=100?[22,163,74]:p>=50?[217,119,6]:[220,38,38]; }
-  function statusLabel(p){ return p>=100?'ACHEVE':p>0?'EN COURS':'NON DEMARRE'; }
+  function statusTxt(p){
+    if(p>=100) return 'ACHEVEE';
+    if(p>0)    return 'EN COURS ('+p.toFixed(0)+'%)';
+    return 'NON DEMARREE';
+  }
+  function recTxt(p, cad, unit, realise, objectif){
+    if(p>=100) return 'Les travaux de cette phase sont entierement realises. Passer a la phase suivante.';
+    let r = '';
+    if(p>0){
+      r = realise+' '+unit+' realises sur '+objectif+' '+unit+' prevus ('+p.toFixed(0)+'%).';
+    } else {
+      r = 'Cette phase n\'a pas encore ete engagee.';
+    }
+    if(cad){
+      r += ' Afin de respecter le delai contractuel, il est necessaire de realiser en moyenne '+cad+' sur les '+rdSafe+' jours ouvrables restants.';
+    }
+    return r;
+  }
 
-  const phases = [
+  const articles = [
     {
-      num:1, color:B, title:'FOUILLES, POSE DES CONDUITES ET REMBLAIEMENT',
-      desc:'Executer les fouilles suivant le trace defini, poser les conduites des differents diametres avec les pieces speciales, puis remblaier les tranchees selon les specifications techniques adoptees.',
-      stat: totalLinear>0?pctR:0,
-      ind: 'Reseau pose : '+totalLinear.toFixed(2)+' m',
-      cadence: cadR
+      num:1,
+      title:'FOUILLES, POSE DES CONDUITES ET REMBLAIEMENT',
+      desc:'Les travaux debutent par l\'execution des fouilles conformement au trace defini, suivi de la pose des conduites neuves de differents diametres avec les pieces speciales requises, puis du remblaiement des tranchees selon les specifications techniques en vigueur.',
+      statut: statusTxt(pctR),
+      realise: totalLinear.toFixed(2), objectif: T.linearReseau||0, unit:'m',
+      recommandation: recTxt(pctR, cadR, 'm', totalLinear.toFixed(2), T.linearReseau||0)
     },
     {
-      num:2, color:G, title:'REALISATION DES BRANCHEMENTS PARTICULIERS',
-      desc:'Apres la pose des conduites, realiser progressivement les branchements particuliers des abonnes au fur et a mesure de l\'avancement des travaux sur chaque troncon de reseau.',
-      stat: totalBranch>0?pctB:0,
-      ind: 'Branchements realises : '+totalBranch+' u',
-      cadence: cadB
+      num:2,
+      title:'REALISATION DES BRANCHEMENTS PARTICULIERS',
+      desc:'A la suite de la pose des conduites, les branchements particuliers des abonnes sont realises progressivement, troncon par troncon, au fur et a mesure de l\'avancement des travaux.',
+      statut: statusTxt(pctB),
+      realise: totalBranch, objectif: T.branchements||0, unit:'u',
+      recommandation: recTxt(pctB, cadB, 'u', totalBranch, T.branchements||0)
     },
     {
-      num:3, color:ORANGE, title:'ESSAIS TECHNIQUES (PRESSION ET COMPACTAGE)',
-      desc:'A l\'achevement de chaque troncon, realiser les essais obligatoires : essai de pression hydraulique (etancheite, absence de fuites) et essai de compactage du remblai (respect des specifications).',
-      stat: totalEssais>0?Math.min(100,(totalEssais/Math.max(totalLinear,1))*100):0,
-      ind: 'Lineaires testes : '+totalEssais.toFixed(2)+' m',
-      cadence: '-'
+      num:3,
+      title:'ESSAIS TECHNIQUES (PRESSION ET COMPACTAGE)',
+      desc:'A l\'issue de chaque troncon, il est procede aux essais reglementaires : essai de pression hydraulique pour verifier l\'etancheite de la conduite, et essai de compactage pour s\'assurer de la qualite du remblaiement.',
+      statut: totalEssais>0?'EN COURS ('+Math.min(100,(totalEssais/Math.max(totalLinear,1))*100).toFixed(0)+'%)':'NON DEMARRE',
+      realise: totalEssais.toFixed(2), objectif: T.linearReseau||0, unit:'m',
+      recommandation: totalEssais>0
+        ? 'Les essais ont ete realises sur '+totalEssais.toFixed(2)+' m de conduite. Il convient de poursuivre les essais systematiquement sur chaque troncon avant tout remblaiement definitif.'
+        : 'Aucun essai technique n\'a ete enregistre a ce jour. Il est imperatif de proceder aux essais de pression et de compactage sur chaque troncon des sa completion.'
     },
     {
-      num:4, color:[80,120,160], title:'REMISE EN ETAT DE LA VOIRIE ET DES TROTTOIRS',
-      desc:'Apres la reussite des essais, executer les travaux de remise en etat de la voirie, des trottoirs et de tout equipement endommage, en provisoire ou definitif selon le programme du projet.',
-      stat: totalRemise>0?pctRem:0,
-      ind: 'Remise en etat : '+totalRemise.toFixed(2)+' m',
-      cadence: cadRem
+      num:4,
+      title:'REMISE EN ETAT DE LA VOIRIE ET DES TROTTOIRS',
+      desc:'Apres validation des essais, les travaux de refection de la voirie, des trottoirs et de l\'ensemble des infrastructures touchees par les travaux sont executes, en phase provisoire ou definitive, conformement au programme contractuel.',
+      statut: statusTxt(pctRem),
+      realise: totalRemise.toFixed(2), objectif: T.remiseEtat||0, unit:'m',
+      recommandation: recTxt(pctRem, cadRem, 'm', totalRemise.toFixed(2), T.remiseEtat||0)
     },
     {
-      num:5, color:[160,80,180], title:'RACCORDEMENTS ET JONCTIONS DE RESEAU',
-      desc:'Connecter les troncons realises au reseau existant ou entre eux, afin d\'assurer la continuite hydraulique du reseau d\'alimentation en eau potable.',
-      stat: totalRacc>0?pctRac:0,
-      ind: 'Raccordements : '+totalRacc+' u',
-      cadence: cadRac
+      num:5,
+      title:'RACCORDEMENTS ET JONCTIONS DE RESEAU',
+      desc:'Les troncons executes sont raccordes au reseau existant ou relies entre eux, afin d\'assurer la continuite hydraulique du reseau d\'alimentation en eau potable.',
+      statut: statusTxt(pctRac),
+      realise: totalRacc, objectif: T.raccordements||0, unit:'u',
+      recommandation: recTxt(pctRac, cadRac, 'u', totalRacc, T.raccordements||0)
     },
     {
-      num:6, color:[20,150,130], title:'DESINFECTION ET RINCAGE DE LA CONDUITE',
-      desc:'Apres les raccordements, proceder a la desinfection de la conduite neuve puis a son rincage, afin de s\'assurer de la conformite de la qualite de l\'eau aux normes sanitaires avant la mise en service.',
-      stat: totalService>0?Math.min(100,(totalService/Math.max(totalBranch,1))*100):0,
-      ind: 'Mises en service : '+totalService+' u',
-      cadence: '-'
+      num:6,
+      title:'DESINFECTION ET RINCAGE DE LA CONDUITE',
+      desc:'Apres achevement des raccordements, la conduite neuve est soumise a une operation de desinfection puis de rincage, afin de garantir la conformite de la qualite de l\'eau aux normes sanitaires avant toute mise en service.',
+      statut: totalService>0?'ENGAGEE':'EN ATTENTE DES RACCORDEMENTS',
+      realise: null, objectif: null, unit:null,
+      recommandation: totalService>0
+        ? 'Les operations de desinfection ont ete engagees. S\'assurer que les analyses bactériologiques confirment la conformite de l\'eau avant mise en service.'
+        : 'Cette phase sera declenchee a l\'issue des raccordements et jonctions. Prevoir les moyens materiel et humain necessaires (chlore, equipements de mesure).'
     },
     {
-      num:7, color:[200,100,30], title:'MISE EN SERVICE ET TRANSFERT DES ABONNES',
-      desc:'Mettre en service la conduite neuve et transferer les branchements particuliers des abonnes de l ancien reseau vers le nouveau, en garantissant la continuite de l alimentation en eau potable sans interruption.',
-      stat: totalService>0?Math.min(100,(totalService/Math.max(totalBranch,1))*100):0,
-      ind: 'Abonnes transferes : '+totalService+' u',
-      cadence: '-'
+      num:7,
+      title:'MISE EN SERVICE ET TRANSFERT DES ABONNES',
+      desc:'La phase finale consiste a mettre en service la conduite neuve et a transferer l\'ensemble des branchements particuliers des abonnes de l\'ancienne vers la nouvelle infrastructure, en garantissant la continuite de l\'alimentation en eau potable sans interruption de service.',
+      statut: totalService>0?'ENGAGEE':'EN ATTENTE',
+      realise: null, objectif: null, unit:null,
+      recommandation: totalService>0
+        ? 'Le transfert des abonnes est en cours ('+totalService+' u). Coordonner avec les equipes d\'exploitation pour eviter toute coupure prolongee et informer les abonnes a l\'avance.'
+        : 'Cette phase necessite une coordination etroite avec les services d\'exploitation. Etablir un planning de transfert detaille par troncon et informer les abonnes au moins 48h a l\'avance.'
     }
   ];
 
-  // Draw each phase as a compact row
-  phases.forEach((ph,idx)=>{
-    const rowH = 21;
-    if(Y + rowH + 4 > pH - 10){ ftr_fn(doc.getNumberOfPages()); doc.addPage(); hdr_fn(); Y=26; }
+  // ── Draw articles ──
+  articles.forEach((art,i)=>{
+    const titleH = 5.5;
+    const descLineCount = doc.splitTextToSize(art.desc, pW-32).length;
+    const recLineCount  = doc.splitTextToSize(art.recommandation, pW-32).length;
+    const artH = titleH + 4 + descLineCount*3.3 + 5 + recLineCount*3.3 + 6;
 
-    const sc = statusColor(ph.stat);
-    const sl = statusLabel(ph.stat);
+    if(Y + artH > pH - 18){
+      ftr_fn(doc.getNumberOfPages()); doc.addPage(); hdr_fn(); Y=26;
+      doc.setDrawColor(180,195,215);doc.setLineWidth(0.3);doc.line(14,Y,pW-14,Y);Y+=5;
+    }
 
-    // Number circle
-    doc.setFillColor(ph.color[0],ph.color[1],ph.color[2]);
-    doc.circle(18.5,Y+rowH/2,5,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
-    doc.text(String(ph.num),18.5,Y+rowH/2+2.8,{align:'center'});
+    // Article number + title
+    doc.setFillColor(...P);doc.roundedRect(14,Y,pW-28,titleH+1,1,1,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
+    doc.text('Article '+art.num+' — '+art.title,17,Y+titleH-0.5);
+    Y += titleH+2;
 
-    // Phase box
-    doc.setFillColor(idx%2===0?248:251,idx%2===0?250:249,idx%2===0?255:255);
-    doc.setDrawColor(ph.color[0],ph.color[1],ph.color[2]);doc.setLineWidth(0.3);
-    doc.roundedRect(25,Y,pW-39,rowH,1.5,1.5,'FD');
-
-    // Title
-    doc.setTextColor(ph.color[0],ph.color[1],ph.color[2]);
-    doc.setFontSize(7);doc.setFont(undefined,'bold');
-    doc.text(ph.title,28,Y+4.5);
+    // Statut badge (inline text)
+    doc.setFontSize(6.5);doc.setFont(undefined,'bold');
+    const statCol = art.statut.startsWith('ACHEV')?[22,163,74]:art.statut.startsWith('EN COURS')||art.statut.startsWith('ENGAGE')?[217,119,6]:[150,160,175];
+    doc.setTextColor(...statCol);
+    doc.text('Etat : '+art.statut,17,Y+3.5);
+    if(art.realise!==null && art.objectif){
+      doc.setTextColor(100,110,125);doc.setFont(undefined,'normal');
+      doc.text('|  Realise : '+art.realise+' '+art.unit+'  /  Objectif : '+art.objectif+' '+art.unit,48,Y+3.5);
+    }
+    Y+=6;
 
     // Description
-    doc.setTextColor(60,70,80);doc.setFontSize(5.8);doc.setFont(undefined,'normal');
-    const descLines = doc.splitTextToSize(ph.desc, pW-75);
-    doc.text(descLines.slice(0,2),28,Y+8.5);
+    doc.setFontSize(6.5);doc.setFont(undefined,'italic');doc.setTextColor(70,80,95);
+    const descLines = doc.splitTextToSize(art.desc, pW-32);
+    doc.text(descLines,17,Y+2);
+    Y += descLines.length*3.3+4;
 
-    // Indicator + cadence on the right
-    doc.setFontSize(6);doc.setFont(undefined,'bold');
-    doc.setTextColor(ph.color[0],ph.color[1],ph.color[2]);
-    doc.text(ph.ind,pW-25,Y+5.5,{align:'right'});
-    if(ph.cadence && ph.cadence!=='-' && ph.cadence!=='--'){
-      doc.setTextColor(124,58,237);
-      doc.text('Cad. req.: '+ph.cadence,pW-25,Y+10,{align:'right'});
-    }
+    // Recommendation label
+    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...P);
+    doc.text('Recommandation :',17,Y+2);
+    Y+=4.5;
 
-    // Status badge
-    doc.setFillColor(...sc);doc.roundedRect(pW-38,Y+13.5,28,5,2,2,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont(undefined,'bold');
-    doc.text(sl,pW-24,Y+16.8,{align:'center'});
+    // Recommendation text
+    doc.setFontSize(6.5);doc.setFont(undefined,'normal');doc.setTextColor(40,50,65);
+    const recLines = doc.splitTextToSize(art.recommandation, pW-30);
+    doc.text(recLines,19,Y+1.5);
+    Y += recLines.length*3.3+5;
 
-    // Progress bar
-    const barW=pW-75, barH=3;
-    doc.setFillColor(220,228,238);doc.roundedRect(28,Y+15.5,barW,barH,1,1,'F');
-    if(ph.stat>0){
-      doc.setFillColor(...sc);
-      doc.roundedRect(28,Y+15.5,Math.max(1,ph.stat/100*barW),barH,1,1,'F');
-    }
-    doc.setFontSize(5);doc.setTextColor(...sc);
-    if(ph.stat>0) doc.text(ph.stat.toFixed(0)+'%',28+Math.max(1,ph.stat/100*barW)+1.5,Y+18,{align:'left'});
-
-    Y += rowH + 2.5;
+    // Separator line
+    doc.setDrawColor(200,210,225);doc.setLineWidth(0.2);doc.line(14,Y,pW-14,Y);
+    Y+=4;
   });
+
+  // ── Closing section ──
+  if(Y + 30 > pH - 18){ ftr_fn(doc.getNumberOfPages()); doc.addPage(); hdr_fn(); Y=26; }
+
+  doc.setFillColor(240,244,252);doc.roundedRect(14,Y,pW-28,9,1.5,1.5,'F');
+  doc.setDrawColor(...P);doc.setLineWidth(0.3);doc.roundedRect(14,Y,pW-28,9,1.5,1.5,'D');
+  doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...P);
+  doc.text('CONCLUSION',17,Y+4);
+  doc.setFont(undefined,'normal');doc.setTextColor(40,50,65);
+  const concl = 'L\'ensemble des recommandations ci-dessus ont ete etablies sur la base des donnees de suivi disponibles a la date du presente CR. Leur mise en oeuvre rigoureuse conditionne le respect du delai contractuel et la qualite de livraison de l\'ouvrage.';
+  const conclLines = doc.splitTextToSize(concl, pW-50);
+  doc.text(conclLines,40,Y+4);
+  Y+=12;
+
+  // Signature zone
+  Y+=4;
+  const sW=55, sH=18;
+  doc.setDrawColor(180,195,215);doc.setLineWidth(0.3);
+  doc.roundedRect(14,Y,sW,sH,1,1);
+  doc.setFillColor(...LB);doc.roundedRect(14,Y,sW,5,1,1,'F');doc.rect(14,Y+2.5,sW,2.5,'F');
+  doc.setTextColor(...P);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
+  doc.text('Le Chef de Chantier',14+sW/2,Y+4,{align:'center'});
+  doc.setFont(undefined,'normal');doc.setTextColor(100,110,125);doc.setFontSize(5.5);
+  doc.text('Nom & Prenom :',16,Y+9);doc.text('Signature :',16,Y+14);
+  doc.setDrawColor(180,195,215);doc.line(35,Y+14,14+sW-2,Y+14);
+
+  doc.roundedRect(14+sW+8,Y,sW,sH,1,1);
+  doc.setFillColor(...LB);doc.roundedRect(14+sW+8,Y,sW,5,1,1,'F');doc.rect(14+sW+8,Y+2.5,sW,2.5,'F');
+  doc.setTextColor(...P);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
+  doc.text('Le Responsable SRM',14+sW+8+sW/2,Y+4,{align:'center'});
+  doc.setFont(undefined,'normal');doc.setTextColor(100,110,125);doc.setFontSize(5.5);
+  doc.text('Nom & Prenom :',16+sW+8,Y+9);doc.text('Signature :',16+sW+8,Y+14);
+  doc.setDrawColor(180,195,215);doc.line(35+sW+8,Y+14,14+sW+8+sW-2,Y+14);
 
   ftr_fn(doc.getNumberOfPages());
 }
