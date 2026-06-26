@@ -3267,255 +3267,224 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
 
 // ════ Ajouter une page de recommandations opérationnelles (7 phases) ════
 function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, GR, delaiInfo, cumuls, globalPct){
-  const P=[43,90,160];  // Dark institutional blue for compte-rendu
+  const P=[30,58,110];  // deep navy
 
   doc.addPage();
   hdr_fn();
 
-  // ── Institutional header block ──
+  // ═══════ HEADER BLOC ═══════
   let Y=21;
 
-  // Double border line
-  doc.setDrawColor(...P);doc.setLineWidth(0.5);
-  doc.line(14,Y,pW-14,Y);
-  doc.line(14,Y+1,pW-14,Y+1);
-  Y+=4;
+  // Thin top line
+  doc.setDrawColor(...P);doc.setLineWidth(0.8);
+  doc.line(14,Y,pW-14,Y);Y+=2;
 
   // Title
   doc.setTextColor(...P);doc.setFontSize(10);doc.setFont(undefined,'bold');
-  doc.text('COMPTE-RENDU OPERATIONNEL',pW/2,Y+5,{align:'center'});
-  Y+=7;
-  doc.setFontSize(8.5);doc.setFont(undefined,'normal');
-  doc.text('Suivi des phases de renouvellement du reseau AEP',pW/2,Y+4,{align:'center'});
-  Y+=6;
-  doc.setDrawColor(...P);doc.setLineWidth(0.5);
-  doc.line(14,Y,pW-14,Y);
-  doc.line(14,Y+1,pW-14,Y+1);
-  Y+=5;
+  doc.text('COMPTE-RENDU OPERATIONNEL',pW/2,Y+5,{align:'center'});Y+=7;
 
-  // Metadata line
-  const now = new Date();
-  const proj = window._pTargets ? (document.getElementById('global-project-name')?.value||'Non specifie') : 'Non specifie';
-  const startDateVal = document.getElementById('project-start-date')?.value||'';
-  const startDisp = startDateVal ? startDateVal.split('-').reverse().join('/') : 'Non renseigne';
+  doc.setFontSize(7);doc.setFont(undefined,'normal');doc.setTextColor(70,80,100);
+  doc.text('Suivi d\'execution du renouvellement du reseau AEP',pW/2,Y+3.5,{align:'center'});Y+=5.5;
 
-  doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...P);
-  doc.text('Projet :',14,Y+4);doc.setFont(undefined,'normal');doc.text(proj,30,Y+4);
-  doc.setFont(undefined,'bold');doc.text('Debut travaux :',90,Y+4);doc.setFont(undefined,'normal');doc.text(startDisp,118,Y+4);
-  doc.setFont(undefined,'bold');doc.text('Date du CR :',145,Y+4);doc.setFont(undefined,'normal');doc.text(now.toLocaleDateString('fr-FR'),163,Y+4);
+  doc.setLineWidth(0.4);doc.setDrawColor(...P);
+  doc.line(14,Y,pW-14,Y);Y+=4;
+
+  // Metadata row
+  const now   = new Date();
+  const proj  = (document.getElementById('global-project-name')?.value||'Non specifie').substring(0,30);
+  const sdVal = document.getElementById('project-start-date')?.value||'';
+  const sdD   = sdVal?sdVal.split('-').reverse().join('/'):'—';
+  const dateD = now.toLocaleDateString('fr-FR');
+  doc.setFontSize(6.5);doc.setTextColor(...P);doc.setFont(undefined,'bold');
+  const mY=Y+3;
+  doc.text('Projet :',14,mY);
+  doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(proj,27,mY);
+  doc.setFont(undefined,'bold');doc.setTextColor(...P);doc.text('Debut :',95,mY);
+  doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(sdD,107,mY);
+  doc.setFont(undefined,'bold');doc.setTextColor(...P);doc.text('Date CR :',125,mY);
+  doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(dateD,141,mY);
+  doc.setFont(undefined,'bold');doc.setTextColor(...P);doc.text('Avt :',160,mY);
+  doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(globalPct.toFixed(1)+'%',169,mY);
   Y+=6;
-  doc.setFont(undefined,'bold');doc.text('Avancement global :',14,Y+4);
-  doc.setFont(undefined,'normal');doc.text(globalPct.toFixed(1)+'%',46,Y+4);
+
   if(delaiInfo){
-    doc.setFont(undefined,'bold');doc.text('Delai contractuel :',70,Y+4);
-    doc.setFont(undefined,'normal');doc.text(delaiInfo.delaiMois+' mois',100,Y+4);
-    doc.setFont(undefined,'bold');doc.text('Jours restants :',120,Y+4);
-    doc.setFont(undefined,'normal');doc.text(String(delaiInfo.remainingDays)+' j',148,Y+4);
-    doc.setFont(undefined,'bold');doc.text('Echeance :',158,Y+4);
-    doc.setFont(undefined,'normal');doc.text(delaiInfo.deadline.toLocaleDateString('fr-FR'),175,Y+4);
+    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...P);
+    doc.text('Delai :',14,Y+3);doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(delaiInfo.delaiMois+' mois',26,Y+3);
+    doc.setFont(undefined,'bold');doc.setTextColor(...P);doc.text('Jours rest. :',52,Y+3);doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(String(delaiInfo.remainingDays)+'j',73,Y+3);
+    doc.setFont(undefined,'bold');doc.setTextColor(...P);doc.text('Echeance :',85,Y+3);doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);doc.text(delaiInfo.deadline.toLocaleDateString('fr-FR'),104,Y+3);
+    // Status pill
+    const sC=delaiInfo.remainingDays<=0?[190,30,30]:globalPct<(delaiInfo.timePct||0)-2?[200,110,20]:[30,140,60];
+    const sT=delaiInfo.remainingDays<=0?'DELAI DEPASSE':globalPct<(delaiInfo.timePct||0)-2?'EN RETARD':'DANS LES TEMPS';
+    doc.setFillColor(...sC);doc.roundedRect(145,Y+1,42,5,2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+    doc.text(sT,166,Y+4.5,{align:'center'});
+    Y+=7;
   }
-  Y+=5;
-  doc.setDrawColor(180,195,215);doc.setLineWidth(0.3);doc.line(14,Y,pW-14,Y);
-  Y+=5;
 
-  // Intro paragraph
-  doc.setFontSize(7);doc.setFont(undefined,'normal');doc.setTextColor(40,50,65);
-  const introText = delaiInfo
-    ? 'Le present compte-rendu expose l\'etat d\'avancement des travaux de renouvellement du reseau AEP et formule les recommandations operationnelles necesssaires pour assurer l\'achevement du projet dans le delai contractuel de '+delaiInfo.delaiMois+' mois (echeance : '+delaiInfo.deadline.toLocaleDateString('fr-FR')+'). Il decrit, pour chacune des sept phases constitutives de l\'operation, la situation actuelle et les actions a mettre en oeuvre.'
-    : 'Le present compte-rendu expose l\'etat d\'avancement des travaux de renouvellement du reseau AEP et formule les recommandations operationnelles pour chaque phase de l\'operation.';
-  const introLines = doc.splitTextToSize(introText, pW-28);
-  doc.text(introLines,14,Y+3);
-  Y += introLines.length*3.5 + 5;
+  doc.setDrawColor(190,200,218);doc.setLineWidth(0.2);doc.line(14,Y,pW-14,Y);Y+=3;
 
-  // Compute data
-  const totalLinear  = Object.values(cumuls.reseau).reduce((a,b)=>a+b,0);
-  const totalBranch  = cumuls.branch.DN32 + cumuls.branch.DN50;
-  const totalRemise  = Object.values(cumuls.remise).reduce((a,b)=>a+b,0);
-  const totalRacc    = cumuls.raccordements.r200 + cumuls.raccordements.r300;
-  const totalEssais  = cumuls.essais || 0;
-  const totalService = (cumuls.service.j32||0)+(cumuls.service.c1_32||0)+(cumuls.service.c2_32||0)+(cumuls.service.c3_32||0)+(cumuls.service.j50||0)+(cumuls.service.c1_50||0)+(cumuls.service.c2_50||0)+(cumuls.service.c3_50||0);
+  // Intro (1 line max)
+  doc.setFontSize(6.2);doc.setFont(undefined,'italic');doc.setTextColor(60,70,90);
+  const introT=delaiInfo
+    ?'Ce CR presente l\'etat d\'avancement de chaque phase et les actions a mener pour respecter le delai contractuel (echeance : '+delaiInfo.deadline.toLocaleDateString('fr-FR')+').'
+    :'Ce CR presente l\'etat d\'avancement de chaque phase du projet et les recommandations operationnelles associees.';
+  const iLines=doc.splitTextToSize(introT,pW-28);
+  doc.text(iLines.slice(0,1),14,Y+3);Y+=5;
 
-  const T = window._pTargets || {};
-  const pct=(v,t)=>t>0?Math.min(100,v/t*100):0;
-  const pctR   = pct(totalLinear, T.linearReseau||0);
-  const pctB   = pct(totalBranch, T.branchements||0);
-  const pctRem = pct(totalRemise, T.remiseEtat||0);
-  const pctRac = pct(totalRacc,   T.raccordements||0);
+  // ═══════ DATA ═══════
+  const tL  = Object.values(cumuls.reseau).reduce((a,b)=>a+b,0);
+  const tB  = cumuls.branch.DN32+cumuls.branch.DN50;
+  const tRm = Object.values(cumuls.remise).reduce((a,b)=>a+b,0);
+  const tRc = cumuls.raccordements.r200+cumuls.raccordements.r300;
+  const tEs = cumuls.essais||0;
+  const tSv = (cumuls.service.j32||0)+(cumuls.service.c1_32||0)+(cumuls.service.c2_32||0)+(cumuls.service.c3_32||0)
+             +(cumuls.service.j50||0)+(cumuls.service.c1_50||0)+(cumuls.service.c2_50||0)+(cumuls.service.c3_50||0);
+  const T   = window._pTargets||{};
+  const pct = (v,t)=>t>0?Math.min(100,v/t*100):0;
+  const rd  = delaiInfo&&delaiInfo.remainingDays>0?Math.max(1,delaiInfo.remainingDays):null;
+  const pR=pct(tL,T.linearReseau||0), pB=pct(tB,T.branchements||0);
+  const pRm=pct(tRm,T.remiseEtat||0), pRc=pct(tRc,T.raccordements||0);
+  const pEs=tEs>0?pct(tEs,Math.max(tL,1)):0, pSv=tSv>0?pct(tSv,Math.max(tB,1)):0;
 
-  const rdSafe = delaiInfo ? Math.max(1,delaiInfo.remainingDays) : 1;
-  const rd = delaiInfo && delaiInfo.remainingDays>0;
-  const cadR   = rd && T.linearReseau   ? (Math.max(0,(T.linearReseau  -totalLinear) /rdSafe)).toFixed(2)+' m/jour'  : null;
-  const cadB   = rd && T.branchements   ? (Math.max(0,(T.branchements  -totalBranch) /rdSafe)).toFixed(2)+' u/jour'  : null;
-  const cadRem = rd && T.remiseEtat     ? (Math.max(0,(T.remiseEtat    -totalRemise) /rdSafe)).toFixed(2)+' m/jour'  : null;
-  const cadRac = rd && T.raccordements  ? (Math.max(0,(T.raccordements -totalRacc)   /rdSafe)).toFixed(2)+' u/jour'  : null;
+  function sCol(p){return p>=100?[30,130,60]:p>0?[200,110,20]:[160,170,185];}
+  function sSt(p,alt){return p>=100?'ACHEVEE':p>0?'EN COURS':alt||'NON DEMARREE';}
+  function cadTxt(rest,unit){return rd?(Math.max(0,rest)/rd).toFixed(2)+' '+unit+'/j':null;}
 
-  function statusTxt(p){
-    if(p>=100) return 'ACHEVEE';
-    if(p>0)    return 'EN COURS ('+p.toFixed(0)+'%)';
-    return 'NON DEMARREE';
-  }
-  function recTxt(p, cad, unit, realise, objectif){
-    if(p>=100) return 'Les travaux de cette phase sont entierement realises. Passer a la phase suivante.';
-    let r = '';
-    if(p>0){
-      r = realise+' '+unit+' realises sur '+objectif+' '+unit+' prevus ('+p.toFixed(0)+'%).';
-    } else {
-      r = 'Cette phase n\'a pas encore ete engagee.';
-    }
-    if(cad){
-      r += ' Afin de respecter le delai contractuel, il est necessaire de realiser en moyenne '+cad+' sur les '+rdSafe+' jours ouvrables restants.';
-    }
+  function recTxt(p,reel,obj,unit,cad){
+    if(p>=100)return 'Phase entierement realisee.';
+    let r=p>0?reel+' '+unit+' sur '+obj+' '+unit+' prevus ('+p.toFixed(0)+'%).':' Phase non encore engagee.';
+    if(cad&&rd)r+=' Cadence requise : '+cad+'.';
     return r;
   }
 
-  const articles = [
-    {
-      num:1,
-      title:'FOUILLES, POSE DES CONDUITES ET REMBLAIEMENT',
-      desc:'Les travaux debutent par l\'execution des fouilles conformement au trace defini, suivi de la pose des conduites neuves de differents diametres avec les pieces speciales requises, puis du remblaiement des tranchees selon les specifications techniques en vigueur.',
-      statut: statusTxt(pctR),
-      realise: totalLinear.toFixed(2), objectif: T.linearReseau||0, unit:'m',
-      recommandation: recTxt(pctR, cadR, 'm', totalLinear.toFixed(2), T.linearReseau||0)
-    },
-    {
-      num:2,
-      title:'REALISATION DES BRANCHEMENTS PARTICULIERS',
-      desc:'A la suite de la pose des conduites, les branchements particuliers des abonnes sont realises progressivement, troncon par troncon, au fur et a mesure de l\'avancement des travaux.',
-      statut: statusTxt(pctB),
-      realise: totalBranch, objectif: T.branchements||0, unit:'u',
-      recommandation: recTxt(pctB, cadB, 'u', totalBranch, T.branchements||0)
-    },
-    {
-      num:3,
-      title:'ESSAIS TECHNIQUES (PRESSION ET COMPACTAGE)',
-      desc:'A l\'issue de chaque troncon, il est procede aux essais reglementaires : essai de pression hydraulique pour verifier l\'etancheite de la conduite, et essai de compactage pour s\'assurer de la qualite du remblaiement.',
-      statut: totalEssais>0?'EN COURS ('+Math.min(100,(totalEssais/Math.max(totalLinear,1))*100).toFixed(0)+'%)':'NON DEMARRE',
-      realise: totalEssais.toFixed(2), objectif: T.linearReseau||0, unit:'m',
-      recommandation: totalEssais>0
-        ? 'Les essais ont ete realises sur '+totalEssais.toFixed(2)+' m de conduite. Il convient de poursuivre les essais systematiquement sur chaque troncon avant tout remblaiement definitif.'
-        : 'Aucun essai technique n\'a ete enregistre a ce jour. Il est imperatif de proceder aux essais de pression et de compactage sur chaque troncon des sa completion.'
-    },
-    {
-      num:4,
-      title:'REMISE EN ETAT DE LA VOIRIE ET DES TROTTOIRS',
-      desc:'Apres validation des essais, les travaux de refection de la voirie, des trottoirs et de l\'ensemble des infrastructures touchees par les travaux sont executes, en phase provisoire ou definitive, conformement au programme contractuel.',
-      statut: statusTxt(pctRem),
-      realise: totalRemise.toFixed(2), objectif: T.remiseEtat||0, unit:'m',
-      recommandation: recTxt(pctRem, cadRem, 'm', totalRemise.toFixed(2), T.remiseEtat||0)
-    },
-    {
-      num:5,
-      title:'RACCORDEMENTS ET JONCTIONS DE RESEAU',
-      desc:'Les troncons executes sont raccordes au reseau existant ou relies entre eux, afin d\'assurer la continuite hydraulique du reseau d\'alimentation en eau potable.',
-      statut: statusTxt(pctRac),
-      realise: totalRacc, objectif: T.raccordements||0, unit:'u',
-      recommandation: recTxt(pctRac, cadRac, 'u', totalRacc, T.raccordements||0)
-    },
-    {
-      num:6,
-      title:'DESINFECTION ET RINCAGE DE LA CONDUITE',
-      desc:'Apres achevement des raccordements, la conduite neuve est soumise a une operation de desinfection puis de rincage, afin de garantir la conformite de la qualite de l\'eau aux normes sanitaires avant toute mise en service.',
-      statut: totalService>0?'ENGAGEE':'EN ATTENTE DES RACCORDEMENTS',
-      realise: null, objectif: null, unit:null,
-      recommandation: totalService>0
-        ? 'Les operations de desinfection ont ete engagees. S\'assurer que les analyses bactériologiques confirment la conformite de l\'eau avant mise en service.'
-        : 'Cette phase sera declenchee a l\'issue des raccordements et jonctions. Prevoir les moyens materiel et humain necessaires (chlore, equipements de mesure).'
-    },
-    {
-      num:7,
-      title:'MISE EN SERVICE ET TRANSFERT DES ABONNES',
-      desc:'La phase finale consiste a mettre en service la conduite neuve et a transferer l\'ensemble des branchements particuliers des abonnes de l\'ancienne vers la nouvelle infrastructure, en garantissant la continuite de l\'alimentation en eau potable sans interruption de service.',
-      statut: totalService>0?'ENGAGEE':'EN ATTENTE',
-      realise: null, objectif: null, unit:null,
-      recommandation: totalService>0
-        ? 'Le transfert des abonnes est en cours ('+totalService+' u). Coordonner avec les equipes d\'exploitation pour eviter toute coupure prolongee et informer les abonnes a l\'avance.'
-        : 'Cette phase necessite une coordination etroite avec les services d\'exploitation. Etablir un planning de transfert detaille par troncon et informer les abonnes au moins 48h a l\'avance.'
-    }
+  const arts=[
+    {n:1,title:'FOUILLES - POSE DES CONDUITES - REMBLAIEMENT',
+     detail:'Fouilles suivant le trace, pose des conduites (differents diametres et pieces speciales), remblaiement conforme aux specifications.',
+     p:pR,info:tL.toFixed(2)+' m / '+(T.linearReseau||0)+' m',
+     reco:recTxt(pR,tL.toFixed(2),T.linearReseau||0,'m',cadTxt(Math.max(0,(T.linearReseau||0)-tL),'m'))},
+    {n:2,title:'BRANCHEMENTS PARTICULIERS',
+     detail:'Execution progressive des branchements abonnes troncon par troncon, en parallele a l\'avancement des conduites.',
+     p:pB,info:tB+' u / '+(T.branchements||0)+' u',
+     reco:recTxt(pB,tB,T.branchements||0,'u',cadTxt(Math.max(0,(T.branchements||0)-tB),'u'))},
+    {n:3,title:'ESSAIS TECHNIQUES (PRESSION ET COMPACTAGE)',
+     detail:'Essai de pression hydraulique (etancheite) et essai de compactage du remblai sur chaque troncon acheve.',
+     p:pEs,info:tEs.toFixed(2)+' m testes',
+     reco:tEs>0?'Poursuivre systematiquement. Valider chaque troncon avant remblaiement definitif.':'Engager les essais des le premier troncon. Respecter les protocoles.'},
+    {n:4,title:'REMISE EN ETAT DE LA VOIRIE ET DES TROTTOIRS',
+     detail:'Refection de la voirie, trottoirs et infrastructures affectees, en phase provisoire ou definitive selon le programme.',
+     p:pRm,info:tRm.toFixed(2)+' m / '+(T.remiseEtat||0)+' m',
+     reco:recTxt(pRm,tRm.toFixed(2),T.remiseEtat||0,'m',cadTxt(Math.max(0,(T.remiseEtat||0)-tRm),'m'))},
+    {n:5,title:'RACCORDEMENTS ET JONCTIONS',
+     detail:'Connexion des troncons realises au reseau existant pour assurer la continuite hydraulique du reseau AEP.',
+     p:pRc,info:tRc+' u / '+(T.raccordements||0)+' u',
+     reco:recTxt(pRc,tRc,T.raccordements||0,'u',cadTxt(Math.max(0,(T.raccordements||0)-tRc),'u'))},
+    {n:6,title:'DESINFECTION ET RINCAGE DE LA CONDUITE',
+     detail:'Desinfection au chlore de la conduite neuve puis rincage, verification de la qualite de l\'eau avant mise en service.',
+     p:pSv,info:tSv>0?'Engagee - '+tSv+' u':'En attente des raccordements',
+     reco:tSv>0?'Confirmer la conformite bacteriologique avant toute mise en service.':'Prevoir les moyens (chlore, equipements) des la fin des raccordements.'},
+    {n:7,title:'MISE EN SERVICE ET TRANSFERT DES ABONNES',
+     detail:'Mise en service de la conduite neuve et transfert des abonnes depuis l\'ancien reseau, sans interruption de l\'alimentation AEP.',
+     p:pSv,info:tSv>0?tSv+' abonnes transferes':'En attente',
+     reco:tSv>0?'Coordonner avec l\'exploitation. Informer les abonnes 48h avant chaque operation.':'Etablir le planning de transfert par troncon et coordonner avec les services d\'exploitation.'},
   ];
 
-  // ── Draw articles ──
-  articles.forEach((art,i)=>{
-    const titleH = 5.5;
-    const descLineCount = doc.splitTextToSize(art.desc, pW-32).length;
-    const recLineCount  = doc.splitTextToSize(art.recommandation, pW-32).length;
-    const artH = titleH + 4 + descLineCount*3.3 + 5 + recLineCount*3.3 + 6;
+  // ═══════ ARTICLE ROWS — dynamic height ═══════
+  const sigH=20, conclH=7, footerM=14;
+  const totalAvail = pH - Y - sigH - conclH - footerM;
+  const rowH = totalAvail / 7;  // exact equal split
 
-    if(Y + artH > pH - 18){
-      ftr_fn(doc.getNumberOfPages()); doc.addPage(); hdr_fn(); Y=26;
-      doc.setDrawColor(180,195,215);doc.setLineWidth(0.3);doc.line(14,Y,pW-14,Y);Y+=5;
-    }
+  // Table header
+  const cX=[14,62,112,150,176], cW=[48,50,38,26,pW-14-176];
+  doc.setFillColor(...P);doc.rect(14,Y,pW-28,5,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(5.8);doc.setFont(undefined,'bold');
+  ['PHASE','DESCRIPTION','AVANCEMENT','STATUT','RECOMMANDATION'].forEach((h,i)=>doc.text(h,cX[i]+1,Y+3.5));
+  Y+=5;
 
-    // Article number + title
-    doc.setFillColor(...P);doc.roundedRect(14,Y,pW-28,titleH+1,1,1,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
-    doc.text('Article '+art.num+' — '+art.title,17,Y+titleH-0.5);
-    Y += titleH+2;
+  arts.forEach((art,i)=>{
+    const bg=i%2===0?[248,250,255]:[243,246,252];
+    doc.setFillColor(...bg);doc.rect(14,Y,pW-28,rowH,'F');
+    // left accent bar
+    doc.setFillColor(...sCol(art.p));doc.rect(14,Y,2,rowH,'F');
 
-    // Statut badge (inline text)
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-    const statCol = art.statut.startsWith('ACHEV')?[22,163,74]:art.statut.startsWith('EN COURS')||art.statut.startsWith('ENGAGE')?[217,119,6]:[150,160,175];
-    doc.setTextColor(...statCol);
-    doc.text('Etat : '+art.statut,17,Y+3.5);
-    if(art.realise!==null && art.objectif){
-      doc.setTextColor(100,110,125);doc.setFont(undefined,'normal');
-      doc.text('|  Realise : '+art.realise+' '+art.unit+'  /  Objectif : '+art.objectif+' '+art.unit,48,Y+3.5);
-    }
-    Y+=6;
+    const midy=Y+rowH/2;
 
-    // Description
-    doc.setFontSize(6.5);doc.setFont(undefined,'italic');doc.setTextColor(70,80,95);
-    const descLines = doc.splitTextToSize(art.desc, pW-32);
-    doc.text(descLines,17,Y+2);
-    Y += descLines.length*3.3+4;
+    // Col 0: Number + Title
+    doc.setFillColor(...P);
+    doc.rect(16,Y+rowH/2-3,5,5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+    doc.text(String(art.n),18.5,Y+rowH/2+1.5,{align:'center'});
+    doc.setTextColor(...P);doc.setFontSize(5.8);doc.setFont(undefined,'bold');
+    const titleLines=doc.splitTextToSize(art.title,cW[0]-7);
+    doc.text(titleLines.slice(0,2),22,Y+3);
 
-    // Recommendation label
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...P);
-    doc.text('Recommandation :',17,Y+2);
-    Y+=4.5;
+    // Col 1: Description
+    doc.setTextColor(50,60,80);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
+    const dLines=doc.splitTextToSize(art.detail,cW[1]-2);
+    doc.text(dLines.slice(0,Math.floor(rowH/3)),cX[1]+1,Y+3);
 
-    // Recommendation text
-    doc.setFontSize(6.5);doc.setFont(undefined,'normal');doc.setTextColor(40,50,65);
-    const recLines = doc.splitTextToSize(art.recommandation, pW-30);
-    doc.text(recLines,19,Y+1.5);
-    Y += recLines.length*3.3+5;
+    // Col 2: Progress bar + info
+    const bx=cX[2]+1, bwy=Y+3, bww=cW[2]-4, bwh=3;
+    doc.setFillColor(210,220,235);doc.roundedRect(bx,bwy,bww,bwh,1,1,'F');
+    if(art.p>0){doc.setFillColor(...sCol(art.p));doc.roundedRect(bx,bwy,Math.max(1,art.p/100*bww),bwh,1,1,'F');}
+    doc.setTextColor(...sCol(art.p));doc.setFontSize(7.5);doc.setFont(undefined,'bold');
+    doc.text(art.p.toFixed(0)+'%',bx+bww/2,bwy+7,{align:'center'});
+    doc.setTextColor(80,90,110);doc.setFontSize(5);doc.setFont(undefined,'normal');
+    const iLines=doc.splitTextToSize(art.info,cW[2]-2);
+    doc.text(iLines.slice(0,2),bx,Y+rowH-5);
 
-    // Separator line
-    doc.setDrawColor(200,210,225);doc.setLineWidth(0.2);doc.line(14,Y,pW-14,Y);
-    Y+=4;
+    // Col 3: Status badge
+    doc.setFillColor(...sCol(art.p));
+    doc.roundedRect(cX[3]+1,Y+rowH/2-4,cW[3]-2,8,1.5,1.5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(5);doc.setFont(undefined,'bold');
+    const stT=art.p>=100?'ACHEVEE':art.p>0?'EN COURS':'NON DEM.';
+    doc.text(stT,cX[3]+cW[3]/2,Y+rowH/2-0.5,{align:'center'});
+
+    // Col 4: Recommandation
+    doc.setTextColor(30,40,60);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
+    const rLines=doc.splitTextToSize(art.reco,cW[4]-3);
+    doc.text(rLines.slice(0,Math.floor(rowH/3)),cX[4]+1,Y+3);
+
+    // Row bottom border
+    doc.setDrawColor(210,218,232);doc.setLineWidth(0.15);
+    doc.line(14,Y+rowH,pW-14,Y+rowH);
+    // Column separators
+    [cX[1],cX[2],cX[3],cX[4]].forEach(cx=>{
+      doc.setDrawColor(210,218,232);doc.setLineWidth(0.15);
+      doc.line(cx,Y,cx,Y+rowH);
+    });
+    Y+=rowH;
   });
+  // Table outer border
+  doc.setDrawColor(...P);doc.setLineWidth(0.3);
+  doc.rect(14,Y-rowH*7,pW-28,rowH*7);
+  Y+=2;
 
-  // ── Closing section ──
-  if(Y + 30 > pH - 18){ ftr_fn(doc.getNumberOfPages()); doc.addPage(); hdr_fn(); Y=26; }
+  // ═══════ CONCLUSION ═══════
+  doc.setFillColor(235,240,252);doc.roundedRect(14,Y,pW-28,conclH,1,1,'F');
+  doc.setDrawColor(...P);doc.setLineWidth(0.2);doc.roundedRect(14,Y,pW-28,conclH,1,1,'D');
+  doc.setFontSize(5.8);doc.setFont(undefined,'bold');doc.setTextColor(...P);
+  doc.text('Conclusion :',17,Y+3.5);
+  doc.setFont(undefined,'normal');doc.setTextColor(30,40,60);
+  const cLines=doc.splitTextToSize('La mise en oeuvre rigoureuse des recommandations ci-dessus conditionne le respect du delai contractuel et la qualite de livraison de l\'ouvrage conforme aux specifications techniques en vigueur.',pW-55);
+  doc.text(cLines.slice(0,1),43,Y+3.5);
+  Y+=conclH+2;
 
-  doc.setFillColor(240,244,252);doc.roundedRect(14,Y,pW-28,9,1.5,1.5,'F');
-  doc.setDrawColor(...P);doc.setLineWidth(0.3);doc.roundedRect(14,Y,pW-28,9,1.5,1.5,'D');
-  doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(...P);
-  doc.text('CONCLUSION',17,Y+4);
-  doc.setFont(undefined,'normal');doc.setTextColor(40,50,65);
-  const concl = 'L\'ensemble des recommandations ci-dessus ont ete etablies sur la base des donnees de suivi disponibles a la date du presente CR. Leur mise en oeuvre rigoureuse conditionne le respect du delai contractuel et la qualite de livraison de l\'ouvrage.';
-  const conclLines = doc.splitTextToSize(concl, pW-50);
-  doc.text(conclLines,40,Y+4);
-  Y+=12;
-
-  // Signature zone
-  Y+=4;
-  const sW=55, sH=18;
-  doc.setDrawColor(180,195,215);doc.setLineWidth(0.3);
-  doc.roundedRect(14,Y,sW,sH,1,1);
-  doc.setFillColor(...LB);doc.roundedRect(14,Y,sW,5,1,1,'F');doc.rect(14,Y+2.5,sW,2.5,'F');
-  doc.setTextColor(...P);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-  doc.text('Le Chef de Chantier',14+sW/2,Y+4,{align:'center'});
-  doc.setFont(undefined,'normal');doc.setTextColor(100,110,125);doc.setFontSize(5.5);
-  doc.text('Nom & Prenom :',16,Y+9);doc.text('Signature :',16,Y+14);
-  doc.setDrawColor(180,195,215);doc.line(35,Y+14,14+sW-2,Y+14);
-
-  doc.roundedRect(14+sW+8,Y,sW,sH,1,1);
-  doc.setFillColor(...LB);doc.roundedRect(14+sW+8,Y,sW,5,1,1,'F');doc.rect(14+sW+8,Y+2.5,sW,2.5,'F');
-  doc.setTextColor(...P);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-  doc.text('Le Responsable SRM',14+sW+8+sW/2,Y+4,{align:'center'});
-  doc.setFont(undefined,'normal');doc.setTextColor(100,110,125);doc.setFontSize(5.5);
-  doc.text('Nom & Prenom :',16+sW+8,Y+9);doc.text('Signature :',16+sW+8,Y+14);
-  doc.setDrawColor(180,195,215);doc.line(35+sW+8,Y+14,14+sW+8+sW-2,Y+14);
+  // ═══════ SIGNATURES ═══════
+  const sW=(pW-28-10)/2;
+  function sig(x,y,w,h,title){
+    doc.setFillColor(...LB);doc.roundedRect(x,y,w,h,1,1,'F');
+    doc.setDrawColor(...P);doc.setLineWidth(0.25);doc.roundedRect(x,y,w,h,1,1,'D');
+    doc.setFillColor(...P);doc.roundedRect(x,y,w,5.5,1,1,'F');doc.rect(x,y+3,w,2.5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
+    doc.text(title,x+w/2,y+4.2,{align:'center'});
+    doc.setTextColor(60,75,100);doc.setFontSize(6);doc.setFont(undefined,'normal');
+    doc.text('Nom et Prenom : .....................................',x+3,y+9.5);
+    doc.text('Date : ........................................',x+3,y+14);
+    doc.text('Signature :',x+3,y+sigH-2);
+    doc.setDrawColor(170,185,210);doc.line(x+24,y+sigH-2,x+w-3,y+sigH-2);
+  }
+  sig(14,Y,sW,sigH,'Le Chef de Chantier');
+  sig(14+sW+10,Y,sW,sigH,'Le Responsable SRM-CS');
 
   ftr_fn(doc.getNumberOfPages());
 }
