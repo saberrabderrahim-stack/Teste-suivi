@@ -3358,7 +3358,7 @@ function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, 
   }
 
   const arts=[
-    {n:1,title:'FOUILLES - POSE DES CONDUITES - REMBLAIEMENT',
+    {n:1,title:'TERRASSEMENT - POSE DES CONDUITES - REMBLAIEMENT',
      detail:'Fouilles suivant le trace, pose des conduites (differents diametres et pieces speciales), remblaiement conforme aux specifications.',
      p:pR,info:tL.toFixed(2)+' m / '+(T.linearReseau||0)+' m',
      reco:recTxt(pR,tL.toFixed(2),T.linearReseau||0,'m',cadTxt(Math.max(0,(T.linearReseau||0)-tL),'m'))},
@@ -3408,41 +3408,51 @@ function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, 
 
     const midy=Y+rowH/2;
 
-    // Col 0: Number + Title
+    // Helper: clamp to column width with ellipsis
+    function clamp(txt, maxW, maxL){
+      var lns=doc.splitTextToSize(txt,maxW), out=[];
+      for(var i=0;i<Math.min(lns.length,maxL);i++){
+        var l=lns[i];
+        while(doc.getTextWidth(l)>maxW&&l.length>3)l=l.slice(0,-1);
+        if(i===maxL-1&&lns.length>maxL&&l.length>3)l=l.slice(0,-2)+'..';
+        out.push(l);
+      }
+      return out;
+    }
+    var maxL=Math.max(2,Math.floor((rowH-8)/3.2));
+
+    // Col 0: Number square + Title
     doc.setFillColor(...P);
-    doc.rect(16,Y+rowH/2-3,5,5,'F');
+    doc.rect(16,Y+1.5,5,5,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
-    doc.text(String(art.n),18.5,Y+rowH/2+1.5,{align:'center'});
+    doc.text(String(art.n),18.5,Y+5.3,{align:'center'});
     doc.setTextColor(...P);doc.setFontSize(5.8);doc.setFont(undefined,'bold');
-    const titleLines=doc.splitTextToSize(art.title,cW[0]-7);
-    doc.text(titleLines.slice(0,2),22,Y+3);
+    doc.text(clamp(art.title,cW[0]-8,maxL),22,Y+3.5);
 
     // Col 1: Description
     doc.setTextColor(50,60,80);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
-    const dLines=doc.splitTextToSize(art.detail,cW[1]-2);
-    doc.text(dLines.slice(0,Math.floor(rowH/3)),cX[1]+1,Y+3);
+    doc.text(clamp(art.detail,cW[1]-4,maxL),cX[1]+2,Y+3.5);
 
-    // Col 2: Progress bar + info
-    const bx=cX[2]+1, bwy=Y+3, bww=cW[2]-4, bwh=3;
+    // Col 2: Progress bar + % + info
+    var bx=cX[2]+2,bwy=Y+3,bww=cW[2]-6,bwh=3;
     doc.setFillColor(210,220,235);doc.roundedRect(bx,bwy,bww,bwh,1,1,'F');
     if(art.p>0){doc.setFillColor(...sCol(art.p));doc.roundedRect(bx,bwy,Math.max(1,art.p/100*bww),bwh,1,1,'F');}
     doc.setTextColor(...sCol(art.p));doc.setFontSize(7.5);doc.setFont(undefined,'bold');
-    doc.text(art.p.toFixed(0)+'%',bx+bww/2,bwy+7,{align:'center'});
+    doc.text(art.p.toFixed(0)+'%',cX[2]+cW[2]/2,Y+rowH/2+3,{align:'center'});
     doc.setTextColor(80,90,110);doc.setFontSize(5);doc.setFont(undefined,'normal');
-    const iLines=doc.splitTextToSize(art.info,cW[2]-2);
-    doc.text(iLines.slice(0,2),bx,Y+rowH-5);
+    doc.text(clamp(art.info,cW[2]-4,2),bx,Y+rowH-5);
 
     // Col 3: Status badge
+    var stT=art.p>=100?'ACHEVEE':art.p>0?'EN COURS':'NON DEM.';
     doc.setFillColor(...sCol(art.p));
-    doc.roundedRect(cX[3]+1,Y+rowH/2-4,cW[3]-2,8,1.5,1.5,'F');
+    doc.roundedRect(cX[3]+1.5,Y+rowH/2-5,cW[3]-3,9,1.5,1.5,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(5);doc.setFont(undefined,'bold');
-    const stT=art.p>=100?'ACHEVEE':art.p>0?'EN COURS':'NON DEM.';
     doc.text(stT,cX[3]+cW[3]/2,Y+rowH/2-0.5,{align:'center'});
 
     // Col 4: Recommandation
     doc.setTextColor(30,40,60);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
-    const rLines=doc.splitTextToSize(art.reco,cW[4]-3);
-    doc.text(rLines.slice(0,Math.floor(rowH/3)),cX[4]+1,Y+3);
+    doc.text(clamp(art.reco,cW[4]-5,maxL),cX[4]+2,Y+3.5);
+
 
     // Row bottom border
     doc.setDrawColor(210,218,232);doc.setLineWidth(0.15);
