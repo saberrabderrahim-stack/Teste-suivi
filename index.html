@@ -1777,23 +1777,92 @@ function renderProgressBars(){
   const totalRemise=Object.values(c.remise).reduce((a,b)=>a+b,0);
   const totalRacc=c.raccordements.r200+c.raccordements.r300;
   const pct=(v,t)=>t>0?Math.min(100,v/t*100):0;
+
+  // Calcul avancement théorique (temps écoulé depuis date début)
+  const startDateVal = document.getElementById('project-start-date').value;
+  let timePct = null;
+  if(startDateVal && projectTargets.delaiMois>0){
+    const start=new Date(startDateVal+'T00:00:00');
+    const today=new Date(); today.setHours(0,0,0,0);
+    const totalDays=Math.round(projectTargets.delaiMois*30.4375);
+    const elapsedDays=Math.max(0,Math.floor((today-start)/86400000));
+    timePct=Math.min(100,(elapsedDays/totalDays)*100);
+  }
+
   const phases=[
     {name:"Réseau linéaire",done:totalLinear.toFixed(2)+" m",target:projectTargets.linearReseau+" m",p:pct(totalLinear,projectTargets.linearReseau),color:"var(--srm-blue)"},
     {name:"Branchements",done:totalBranch+" u",target:projectTargets.branchements+" u",p:pct(totalBranch,projectTargets.branchements),color:"var(--srm-green)"},
     {name:"Remise en état",done:totalRemise.toFixed(2)+" m",target:projectTargets.remiseEtat+" m",p:pct(totalRemise,projectTargets.remiseEtat),color:"var(--srm-orange)"},
     {name:"Raccordements",done:totalRacc+" u",target:projectTargets.raccordements+" u",p:pct(totalRacc,projectTargets.raccordements),color:"#7c3aed"}
   ];
+
   const container=document.getElementById('progress-bars-container');container.innerHTML='';
+
+  // Legend (shown once if timePct available)
+  if(timePct!==null){
+    const legend=document.createElement('div');
+    legend.className='flex items-center gap-3 mb-1';
+    legend.style.cssText='font-size:10px;';
+    legend.innerHTML=
+      '<span style="display:flex;align-items:center;gap:3px;color:var(--srm-text-muted);font-weight:600;">'+
+        '<span style="width:18px;height:3px;background:var(--srm-blue);border-radius:2px;display:inline-block;"></span>Réel'+
+      '</span>'+
+      '<span style="display:flex;align-items:center;gap:3px;color:#9ca3af;font-weight:600;">'+
+        '<span style="width:18px;height:3px;background:#9ca3af;border-radius:2px;display:inline-block;border:1px dashed #9ca3af;"></span>Théorique ('+timePct.toFixed(1)+'%)'+
+      '</span>';
+    container.appendChild(legend);
+  }
+
   phases.forEach(ph=>{
-    const div=document.createElement('div');div.className='space-y-1';
-    div.innerHTML=`<div class="flex justify-between items-center"><span class="text-xs font-semibold text-gray-600">${ph.name}</span><span class="text-xs font-mono-custom text-gray-500">${ph.done} / ${ph.target}</span></div>
-      <div class="progress-bar-bg" style="position:relative"><div class="progress-bar-fill" style="width:${ph.p}%;background:${ph.color}"></div><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:900;color:var(--srm-blue)">${ph.p.toFixed(1)}%</span></div>`;
+    if(parseFloat(ph.target)===0) return; // skip phases without target
+    const div=document.createElement('div');
+    div.className='space-y-0.5';
+
+    // Real bar
+    const realBarHTML=
+      '<div class="flex justify-between items-center" style="margin-bottom:2px;">'+
+        '<span class="text-xs font-semibold text-gray-600">'+ph.name+'</span>'+
+        '<span class="text-xs text-gray-500" style="font-size:10px;">'+ph.done+' / '+ph.target+'</span>'+
+      '</div>'+
+      '<div class="progress-bar-bg" style="position:relative;height:7px;">'+
+        '<div class="progress-bar-fill" style="width:'+ph.p+'%;background:'+ph.color+';height:7px;"></div>'+
+        '<span style="position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:900;color:'+ph.color+'">'+ph.p.toFixed(1)+'%</span>'+
+      '</div>';
+
+    // Theoretical bar (if timePct available)
+    let theoBarHTML='';
+    if(timePct!==null){
+      theoBarHTML=
+        '<div style="display:flex;align-items:center;gap:4px;margin-top:2px;">'+
+          '<span style="font-size:9px;color:#9ca3af;font-weight:600;white-space:nowrap;">Théorique</span>'+
+          '<div style="flex:1;position:relative;height:5px;">'+
+            '<div style="width:100%;height:5px;background:#e5e7eb;border-radius:3px;"></div>'+
+            '<div style="position:absolute;top:0;left:0;width:'+timePct+'%;height:5px;background:#9ca3af;border-radius:3px;border:1px dashed #6b7280;box-sizing:border-box;"></div>'+
+          '</div>'+
+          '<span style="font-size:9px;color:#6b7280;font-weight:700;white-space:nowrap;">'+timePct.toFixed(1)+'%</span>'+
+        '</div>';
+    }
+
+    div.innerHTML=realBarHTML+theoBarHTML;
     container.appendChild(div);
   });
+
   const validPhases=phases.filter(ph=>parseFloat(ph.target)>0);
   const globalPct=validPhases.length?validPhases.reduce((s,ph)=>s+ph.p,0)/validPhases.length:0;
   document.getElementById('global-progress-fill').style.width=globalPct.toFixed(1)+'%';
   document.getElementById('global-pct-text').innerText=globalPct.toFixed(1)+'%';
+
+  // Global theoretical bar in the global section
+  const gtp=document.getElementById('global-theo-bar');
+  const gtl=document.getElementById('global-theo-label');
+  if(gtp&&gtl&&timePct!==null){
+    gtp.style.width=timePct.toFixed(1)+'%';
+    gtl.innerText=timePct.toFixed(1)+'%';
+    document.getElementById('global-theo-row').style.display='';
+  } else if(document.getElementById('global-theo-row')){
+    document.getElementById('global-theo-row').style.display='none';
+  }
+
   renderDelaiAnalysis(c, globalPct);
 }
 
