@@ -2366,6 +2366,82 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
   // ── Calcul avancement (réutilisé sur la page Délai) ──
   const pctV=(v,t)=>t>0?Math.min(100,v/t*100):0;
 
+  // ════ CONCLUSION (bas de page 1) ════
+  {
+    const conclY = yL + 4;
+    const conclW = pW - 28;
+    // Titre
+    doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,7,1.5,1.5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
+    doc.text('CONCLUSION',16,conclY+4.8);
+    doc.setTextColor(...DARK);
+
+    // Bloc contenu
+    const blkY = conclY+9;
+    doc.setFillColor(245,248,252);doc.roundedRect(14,blkY,conclW,58,1,1,'F');
+    doc.setDrawColor(...B);doc.setLineWidth(0.25);doc.roundedRect(14,blkY,conclW,58,1,1,'D');
+
+    // Ligne de séparation gauche (accent bleu)
+    doc.setFillColor(...B);doc.roundedRect(14,blkY,2,58,1,0,'F');
+
+    // Contenu textuel issu du QR Code
+    const lx=20, rx=pW-14, tw=conclW-10;
+    doc.setFont(undefined,'bold');doc.setFontSize(7);doc.setTextColor(...B);
+    doc.text('Informations du rapport',lx,blkY+6);
+    doc.setDrawColor(200,215,230);doc.setLineWidth(0.2);doc.line(lx,blkY+7.5,rx-6,blkY+7.5);
+
+    // Grille info (2 colonnes)
+    const col1x=lx, col2x=lx+conclW/2-5;
+    const rowH2=6.5;
+    const infoRows=[
+      ['Projet',proj,'Établi par',uname],
+      ['Période',fmtDate(from)+' \u2192 '+fmtDate(to),'Export',dateStr+' '+timeStr],
+    ];
+    doc.setFontSize(6.5);
+    infoRows.forEach((row,i)=>{
+      const ry=blkY+11+i*rowH2;
+      doc.setFont(undefined,'bold');doc.setTextColor(...B);
+      doc.text(row[0]+' :',col1x,ry);
+      doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
+      const v1Lines=doc.splitTextToSize(row[1],conclW/2-18);
+      doc.text(v1Lines,col1x+22,ry);
+      doc.setFont(undefined,'bold');doc.setTextColor(...B);
+      doc.text(row[2]+' :',col2x,ry);
+      doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
+      const v2Lines=doc.splitTextToSize(row[3],conclW/2-18);
+      doc.text(v2Lines,col2x+22,ry);
+    });
+
+    // Séparateur avant statistiques
+    doc.setDrawColor(200,215,230);doc.setLineWidth(0.2);doc.line(lx,blkY+25.5,rx-6,blkY+25.5);
+    doc.setFont(undefined,'bold');doc.setFontSize(7);doc.setTextColor(...B);
+    doc.text('Statistiques de la période',lx,blkY+30);
+    doc.setDrawColor(200,215,230);doc.setLineWidth(0.2);doc.line(lx,blkY+31.5,rx-6,blkY+31.5);
+
+    // 4 stats en ligne
+    const statsItems=[
+      {lbl:'Réseau posé', val:tL.toFixed(2)+' m', pct:pct(tL,projectTargets.linearReseau), col:B},
+      {lbl:'Branchements', val:tB+' u', pct:pct(tB,projectTargets.branchements), col:G},
+      {lbl:'Remise en état', val:tRem.toFixed(2)+' m', pct:pct(tRem,projectTargets.remiseEtat), col:O},
+      {lbl:'Raccordements', val:tRac+' u', pct:pct(tRac,projectTargets.raccordements), col:P}
+    ];
+    const sBoxW=(conclW-6)/4, sBoxH=16, sBoxStartY=blkY+34;
+    statsItems.forEach((s,i)=>{
+      const sx=14+3+i*(sBoxW+1);
+      doc.setFillColor(255,255,255);doc.roundedRect(sx,sBoxStartY,sBoxW,sBoxH,1,1,'F');
+      doc.setDrawColor(...s.col);doc.setLineWidth(0.3);doc.roundedRect(sx,sBoxStartY,sBoxW,sBoxH,1,1,'D');
+      doc.setFillColor(...s.col);doc.roundedRect(sx,sBoxStartY,sBoxW,5,1,0,'F');doc.rect(sx,sBoxStartY+3,sBoxW,2,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont(undefined,'bold');
+      doc.text(s.lbl,sx+sBoxW/2,sBoxStartY+3.8,{align:'center'});
+      doc.setTextColor(30,45,61);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
+      doc.text(s.val,sx+sBoxW/2,sBoxStartY+10,{align:'center'});
+      doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(100,115,130);
+      doc.text('('+s.pct+')',sx+sBoxW/2,sBoxStartY+14.2,{align:'center'});
+    });
+    // Reset
+    doc.setTextColor(...DARK);
+  }
+
   // Signatures (helper, drawn on page 2)
   const bWs=83, bHs=30, sG=7, sX1=14, sX2=14+bWs+sG;
   function sigBox(x,y,title,sub){
