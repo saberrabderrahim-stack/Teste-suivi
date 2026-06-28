@@ -2539,34 +2539,6 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       doc.setTextColor(...DARK);Yd+=16;
     }
 
-    // ── 4 MINI-GRAPHIQUES : PRODUCTION JOURNALIÈRE PAR CATÉGORIE (période filtrée) ──
-    const {dates:tlDates, series:tlSeries} = getDailyCumulativeSeries(filtered);
-    if(tlDates.length>=1){
-      const gridH = 78;
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-      doc.text('PRODUCTION JOURNALIÈRE PAR CATÉGORIE',16,Yd+4);
-      doc.setTextColor(...DARK);Yd+=8.5;
-
-      try{
-        const imgs = await renderDailyMiniCharts(tlDates, tlSeries);
-        const gW = (pW-28-5)/2, gH = (gridH-5)/2;
-        const positions = [[14,Yd],[14+gW+5,Yd],[14,Yd+gH+5],[14+gW+5,Yd+gH+5]];
-        imgs.forEach((img,i)=>{
-          const [px,py] = positions[i];
-          doc.setDrawColor(220,228,238);doc.setLineWidth(0.3);
-          doc.roundedRect(px,py,gW,gH,1,1);
-          if(img){ try{ doc.addImage(img,'PNG',px+0.5,py+0.5,gW-1,gH-1); }catch(e){} }
-        });
-      }catch(e){
-        console.error('Mini charts render error', e);
-        doc.setFontSize(6.5);doc.setTextColor(180,180,180);
-        doc.text('Graphiques indisponibles',pW/2,Yd+gridH/2,{align:'center'});
-        doc.setTextColor(...DARK);
-      }
-      Yd += gridH + 10;
-    }
-
     // Signatures placed on this page (page 2) — fills remaining space
     const bWsC=83, bHsC=28, sGC=7;
     function sigBoxCompact(x,y,title,sub){
