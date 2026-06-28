@@ -1446,25 +1446,31 @@ async function _doPDF(qrDataUrl){
     // Sous-titre stats
     doc.setFont(undefined,'bold');doc.setFontSize(6);doc.setTextColor(...B);
     doc.text('Statistiques globales cumulées',lx2,blkY+17);
-    // 4 mini-cartes
-    const _statsC=[
-      {lbl:'Réseau posé', val:tL.toFixed(0)+' m', tot:projectTargets.linearReseau+' m', p:_pctFmt(tL,projectTargets.linearReseau), col:B},
-      {lbl:'Branchements', val:tB+' u', tot:projectTargets.branchements+' u', p:_pctFmt(tB,projectTargets.branchements), col:G},
-      {lbl:'Remise en état', val:tRem.toFixed(0)+' m', tot:projectTargets.remiseEtat+' m', p:_pctFmt(tRem,projectTargets.remiseEtat), col:O},
-      {lbl:'Raccordements', val:tRac+' u', tot:projectTargets.raccordements+' u', p:_pctFmt(tRac,projectTargets.raccordements), col:[99,60,180]}
-    ];
-    const sBoxW2=(conclW-8)/4, sBoxH2=11, sBoxY2=blkY+19;
-    _statsC.forEach((s,i)=>{
-      const sx=14+4+i*(sBoxW2+1.5);
-      doc.setFillColor(255,255,255);doc.roundedRect(sx,sBoxY2,sBoxW2,sBoxH2,1,1,'F');
-      doc.setDrawColor(...s.col);doc.setLineWidth(0.25);doc.roundedRect(sx,sBoxY2,sBoxW2,sBoxH2,1,1,'D');
-      doc.setFillColor(...s.col);doc.roundedRect(sx,sBoxY2,sBoxW2,4,1,0,'F');doc.rect(sx,sBoxY2+2,sBoxW2,2,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(5);doc.setFont(undefined,'bold');
-      doc.text(s.lbl,sx+sBoxW2/2,sBoxY2+3,{align:'center'});
-      doc.setTextColor(30,45,61);doc.setFontSize(6);doc.setFont(undefined,'bold');
-      doc.text(s.val+' / '+s.tot,sx+sBoxW2/2,sBoxY2+7.5,{align:'center'});
-      doc.setFontSize(4.8);doc.setFont(undefined,'normal');doc.setTextColor(100,115,130);
-      doc.text('('+s.p+')',sx+sBoxW2/2,sBoxY2+10.2,{align:'center'});
+    // Tableau stats (autoTable pour alignement parfait)
+    doc.autoTable({
+      head:[[
+        {content:'Réseau posé',styles:{fillColor:B,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
+        {content:'Branchements',styles:{fillColor:G,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
+        {content:'Remise en état',styles:{fillColor:O,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
+        {content:'Raccordements',styles:{fillColor:[99,60,180],halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}}
+      ]],
+      body:[[
+        {content:tL.toFixed(0)+' m / '+projectTargets.linearReseau+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
+        {content:tB+' u / '+projectTargets.branchements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
+        {content:tRem.toFixed(0)+' m / '+projectTargets.remiseEtat+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
+        {content:tRac+' u / '+projectTargets.raccordements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}}
+      ],[
+        {content:_pctFmt(tL,projectTargets.linearReseau),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:B,cellPadding:[0,1,2,1]}},
+        {content:_pctFmt(tB,projectTargets.branchements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:G,cellPadding:[0,1,2,1]}},
+        {content:_pctFmt(tRem,projectTargets.remiseEtat),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:O,cellPadding:[0,1,2,1]}},
+        {content:_pctFmt(tRac,projectTargets.raccordements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[99,60,180],cellPadding:[0,1,2,1]}}
+      ]],
+      startY:blkY+19,
+      styles:{cellPadding:2,fontSize:6.5,halign:'center',valign:'middle'},
+      headStyles:{cellPadding:2,fontSize:6,halign:'center'},
+      margin:{left:16,right:16},
+      tableWidth:conclW-4,
+      didDrawPage:function(){}
     });
     doc.setTextColor(...DARK);
   }
@@ -2469,26 +2475,32 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
     // Sous-titre stats
     doc.setFont(undefined,'bold');doc.setFontSize(6);doc.setTextColor(...B);
     doc.text('Statistiques de la période',lx,blkY+17);
-    // 4 mini-cartes stats
-    const statsItems=[
-      {lbl:'Réseau posé', val:tL.toFixed(0)+' m', tot:projectTargets.linearReseau+' m', p:pct(tL,projectTargets.linearReseau), col:B},
-      {lbl:'Branchements', val:tB+' u', tot:projectTargets.branchements+' u', p:pct(tB,projectTargets.branchements), col:G},
-      {lbl:'Remise en état', val:tRem.toFixed(0)+' m', tot:projectTargets.remiseEtat+' m', p:pct(tRem,projectTargets.remiseEtat), col:O},
-      {lbl:'Raccordements', val:tRac+' u', tot:projectTargets.raccordements+' u', p:pct(tRac,projectTargets.raccordements), col:P}
-    ];
-    const sBoxW=(conclW-8)/4, sBoxH=11, sBoxY=blkY+19;
-    statsItems.forEach((s,i)=>{
-      const sx=14+4+i*(sBoxW+1.5);
-      doc.setFillColor(255,255,255);doc.roundedRect(sx,sBoxY,sBoxW,sBoxH,1,1,'F');
-      doc.setDrawColor(...s.col);doc.setLineWidth(0.25);doc.roundedRect(sx,sBoxY,sBoxW,sBoxH,1,1,'D');
-      doc.setFillColor(...s.col);doc.roundedRect(sx,sBoxY,sBoxW,4,1,0,'F');doc.rect(sx,sBoxY+2,sBoxW,2,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(5);doc.setFont(undefined,'bold');
-      doc.text(s.lbl,sx+sBoxW/2,sBoxY+3,{align:'center'});
-      doc.setTextColor(30,45,61);doc.setFontSize(6);doc.setFont(undefined,'bold');
-      doc.text(s.val+' / '+s.tot,sx+sBoxW/2,sBoxY+7.5,{align:'center'});
-      doc.setFontSize(4.8);doc.setFont(undefined,'normal');doc.setTextColor(100,115,130);
-      const pctTxt=typeof s.p==='number'?'('+s.p.toFixed(0)+'%)':'('+s.p+')';
-      doc.text(pctTxt,sx+sBoxW/2,sBoxY+10.2,{align:'center'});
+    // Tableau stats (autoTable pour alignement parfait)
+    const _fmtPct2=(v,t)=>t>0?Math.min(100,(v/t*100)).toFixed(0)+'%':'—';
+    doc.autoTable({
+      head:[[
+        {content:'Réseau posé',styles:{fillColor:B,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
+        {content:'Branchements',styles:{fillColor:G,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
+        {content:'Remise en état',styles:{fillColor:O,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
+        {content:'Raccordements',styles:{fillColor:P,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}}
+      ]],
+      body:[[
+        {content:tL.toFixed(0)+' m / '+projectTargets.linearReseau+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
+        {content:tB+' u / '+projectTargets.branchements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
+        {content:tRem.toFixed(0)+' m / '+projectTargets.remiseEtat+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
+        {content:tRac+' u / '+projectTargets.raccordements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}}
+      ],[
+        {content:_fmtPct2(tL,projectTargets.linearReseau),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:B,cellPadding:[0,1,2,1]}},
+        {content:_fmtPct2(tB,projectTargets.branchements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:G,cellPadding:[0,1,2,1]}},
+        {content:_fmtPct2(tRem,projectTargets.remiseEtat),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:O,cellPadding:[0,1,2,1]}},
+        {content:_fmtPct2(tRac,projectTargets.raccordements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:P,cellPadding:[0,1,2,1]}}
+      ]],
+      startY:blkY+19,
+      styles:{cellPadding:2,fontSize:6.5,halign:'center',valign:'middle'},
+      headStyles:{cellPadding:2,fontSize:6,halign:'center'},
+      margin:{left:16,right:16},
+      tableWidth:conclW-4,
+      didDrawPage:function(){}
     });
     doc.setTextColor(...DARK);
   }
