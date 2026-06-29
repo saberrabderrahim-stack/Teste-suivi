@@ -1409,69 +1409,74 @@ async function _doPDF(qrDataUrl){
   {
     const _pctFmt=(v,t)=>t>0?Math.min(100,(v/t*100)).toFixed(0)+'%':'—';
     const now2=new Date();
-    const conclW=pW-28, conclH=36;
-    const conclY=pH-conclH-7;
+    const _dn=now2.toLocaleDateString('fr-FR'), _tn=now2.toLocaleTimeString('fr-FR');
+    const conclW=pW-28;
+    const TH=6, IH=9, SH=5, RH1=7, RH2=6, PAD=6;
+    const conclH=TH+1+IH+1+SH+RH1+RH2+PAD;
+    const conclY=pH-conclH-6;
     // Titre
-    doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,6,1.5,1.5,'F');
+    doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,TH,1.5,1.5,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
     doc.text('CONCLUSION',16,conclY+4.2);
-    doc.setTextColor(...DARK);
-    // Bloc
-    const blkY=conclY+7;const blkH=conclH-7;
+    // Bloc fond
+    const blkY=conclY+TH+1;
+    const blkH=conclH-TH-1;
     doc.setFillColor(245,248,252);doc.roundedRect(14,blkY,conclW,blkH,1,1,'F');
     doc.setDrawColor(...B);doc.setLineWidth(0.2);doc.roundedRect(14,blkY,conclW,blkH,1,1,'D');
     doc.setFillColor(...B);doc.roundedRect(14,blkY,2,blkH,1,0,'F');
-    const lx2=20, col2x2=lx2+conclW/2-4;
-    const _dn=now2.toLocaleDateString('fr-FR'), _tn=now2.toLocaleTimeString('fr-FR');
-    // Ligne 1
+    const lx2=20, col2x2=lx2+(conclW-6)/2;
+    // Info ligne 1
     doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...B);
     doc.text('Projet :',lx2,blkY+5);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text(doc.splitTextToSize(proj,conclW/2-20)[0],lx2+17,blkY+5);
+    doc.text(doc.splitTextToSize(proj,(conclW-6)/2-22)[0],lx2+17,blkY+5);
     doc.setFont(undefined,'bold');doc.setTextColor(...B);
     doc.text('Etabli par :',col2x2,blkY+5);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
     doc.text(currentUser?(USERS[currentUser]?.displayName||currentUser):'—',col2x2+20,blkY+5);
-    // Ligne 2
+    // Info ligne 2
     doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('Date export :',lx2,blkY+10);
+    doc.text('Export :',lx2,blkY+5+IH/2+2);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text(_dn+' '+_tn,lx2+22,blkY+10);
+    doc.text(_dn+' '+_tn,lx2+17,blkY+5+IH/2+2);
     doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('Debut projet :',col2x2,blkY+10);
+    doc.text('Début projet :',col2x2,blkY+5+IH/2+2);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text((document.getElementById('project-start-date').value||'Non renseignée'),col2x2+24,blkY+10);
+    doc.text((document.getElementById('project-start-date').value||'—'),col2x2+24,blkY+5+IH/2+2);
     // Séparateur
-    doc.setDrawColor(200,215,230);doc.setLineWidth(0.15);doc.line(lx2,blkY+13,pW-14-4,blkY+13);
-    // Sous-titre stats
+    const sepY=blkY+IH+1;
+    doc.setDrawColor(200,215,230);doc.setLineWidth(0.15);doc.line(lx2,sepY,pW-16,sepY);
+    // Sous-titre
     doc.setFont(undefined,'bold');doc.setFontSize(6);doc.setTextColor(...B);
-    doc.text('Statistiques globales cumulées',lx2,blkY+17);
-    // Tableau stats (autoTable pour alignement parfait)
-    doc.autoTable({
-      head:[[
-        {content:'Réseau posé',styles:{fillColor:B,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
-        {content:'Branchements',styles:{fillColor:G,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
-        {content:'Remise en état',styles:{fillColor:O,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
-        {content:'Raccordements',styles:{fillColor:[99,60,180],halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}}
-      ]],
-      body:[[
-        {content:tL.toFixed(0)+' m / '+projectTargets.linearReseau+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
-        {content:tB+' u / '+projectTargets.branchements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
-        {content:tRem.toFixed(0)+' m / '+projectTargets.remiseEtat+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
-        {content:tRac+' u / '+projectTargets.raccordements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}}
-      ],[
-        {content:_pctFmt(tL,projectTargets.linearReseau),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:B,cellPadding:[0,1,2,1]}},
-        {content:_pctFmt(tB,projectTargets.branchements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:G,cellPadding:[0,1,2,1]}},
-        {content:_pctFmt(tRem,projectTargets.remiseEtat),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:O,cellPadding:[0,1,2,1]}},
-        {content:_pctFmt(tRac,projectTargets.raccordements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[99,60,180],cellPadding:[0,1,2,1]}}
-      ]],
-      startY:blkY+19,
-      styles:{cellPadding:2,fontSize:6.5,halign:'center',valign:'middle'},
-      headStyles:{cellPadding:2,fontSize:6,halign:'center'},
-      margin:{left:16,right:16},
-      tableWidth:conclW-4,
-      didDrawPage:function(){}
+    doc.text('Statistiques globales cumulées',lx2,sepY+SH);
+    // Tableau 4 colonnes dessiné manuellement (2 lignes : valeur + %)
+    const cols=[
+      {lbl:'Réseau posé',   val:tL.toFixed(0)+' m / '+projectTargets.linearReseau+' m',  pct:_pctFmt(tL,projectTargets.linearReseau),  col:B},
+      {lbl:'Branchements',  val:tB+' u / '+projectTargets.branchements+' u',               pct:_pctFmt(tB,projectTargets.branchements),   col:G},
+      {lbl:'Remise en état',val:tRem.toFixed(0)+' m / '+projectTargets.remiseEtat+' m',  pct:_pctFmt(tRem,projectTargets.remiseEtat),  col:O},
+      {lbl:'Raccordements', val:tRac+' u / '+projectTargets.raccordements+' u',            pct:_pctFmt(tRac,projectTargets.raccordements),col:[99,60,180]}
+    ];
+    const tblX=16, tblW=conclW-4, cW=tblW/4;
+    const tblY=sepY+SH+1;
+    cols.forEach((c,i)=>{
+      const cx=tblX+i*cW;
+      // header
+      doc.setFillColor(...c.col);doc.rect(cx,tblY,cW,RH1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont(undefined,'bold');
+      doc.text(c.lbl,cx+cW/2,tblY+RH1/2+1,{align:'center'});
+      // row1 valeur
+      doc.setFillColor(255,255,255);doc.rect(cx,tblY+RH1,cW,RH1,'F');
+      doc.setTextColor(30,45,61);doc.setFontSize(5.8);doc.setFont(undefined,'bold');
+      doc.text(c.val,cx+cW/2,tblY+RH1+RH1/2+1,{align:'center'});
+      // row2 pct
+      doc.setFillColor(248,250,253);doc.rect(cx,tblY+RH1*2,cW,RH2,'F');
+      doc.setTextColor(...c.col);doc.setFontSize(6);doc.setFont(undefined,'bold');
+      doc.text(c.pct,cx+cW/2,tblY+RH1*2+RH2/2+1.5,{align:'center'});
+      // bordures
+      doc.setDrawColor(220,228,238);doc.setLineWidth(0.15);
+      doc.rect(cx,tblY,cW,RH1+RH1+RH2,'D');
     });
+    // ligne séparatrice verticale entre colonnes
     doc.setTextColor(...DARK);
   }
 
@@ -2438,69 +2443,68 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
 
   // ════ CONCLUSION (bas de page 1, ancré en bas) ════
   {
-    const conclW=pW-28, conclH=36;
-    const conclY=pH-conclH-7; // ancré au bas de la page
+    const _fmtPct2=(v,t)=>t>0?Math.min(100,(v/t*100)).toFixed(0)+'%':'—';
+    const conclW=pW-28;
+    const TH=6, IH=9, SH=5, RH1=7, RH2=6, PAD=6;
+    const conclH=TH+1+IH+1+SH+RH1+RH2+PAD;
+    const conclY=pH-conclH-6;
     // Titre
-    doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,6,1.5,1.5,'F');
+    doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,TH,1.5,1.5,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
     doc.text('CONCLUSION',16,conclY+4.2);
-    doc.setTextColor(...DARK);
-    // Bloc
-    const blkY=conclY+7;const blkH=conclH-7;
+    // Bloc fond
+    const blkY=conclY+TH+1;
+    const blkH=conclH-TH-1;
     doc.setFillColor(245,248,252);doc.roundedRect(14,blkY,conclW,blkH,1,1,'F');
     doc.setDrawColor(...B);doc.setLineWidth(0.2);doc.roundedRect(14,blkY,conclW,blkH,1,1,'D');
     doc.setFillColor(...B);doc.roundedRect(14,blkY,2,blkH,1,0,'F');
-    const lx=20,rx=pW-14;
-    // Ligne 1 : Projet + Etabli par
-    const col2x=lx+conclW/2-4;
+    const lxC=20, col2xC=lxC+(conclW-6)/2;
+    // Info ligne 1
     doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('Projet :',lx,blkY+5);
+    doc.text('Projet :',lxC,blkY+5);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text(doc.splitTextToSize(proj,conclW/2-20)[0],lx+17,blkY+5);
+    doc.text(doc.splitTextToSize(proj,(conclW-6)/2-22)[0],lxC+17,blkY+5);
     doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('Etabli par :',col2x,blkY+5);
+    doc.text('Etabli par :',col2xC,blkY+5);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text(uname,col2x+20,blkY+5);
-    // Ligne 2 : Période + Export
+    doc.text(uname,col2xC+20,blkY+5);
+    // Info ligne 2
     doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('Période :',lx,blkY+10);
+    doc.text('Période :',lxC,blkY+5+IH/2+2);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text(fmtDate(from)+' \u2192 '+fmtDate(to),lx+17,blkY+10);
+    doc.text(fmtDate(from)+' \u2192 '+fmtDate(to),lxC+17,blkY+5+IH/2+2);
     doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('Export :',col2x,blkY+10);
+    doc.text('Export :',col2xC,blkY+5+IH/2+2);
     doc.setFont(undefined,'normal');doc.setTextColor(40,55,70);
-    doc.text(dateStr+' '+timeStr,col2x+20,blkY+10);
+    doc.text(dateStr+' '+timeStr,col2xC+20,blkY+5+IH/2+2);
     // Séparateur
-    doc.setDrawColor(200,215,230);doc.setLineWidth(0.15);doc.line(lx,blkY+13,rx-4,blkY+13);
-    // Sous-titre stats
+    const sepYC=blkY+IH+1;
+    doc.setDrawColor(200,215,230);doc.setLineWidth(0.15);doc.line(lxC,sepYC,pW-16,sepYC);
+    // Sous-titre
     doc.setFont(undefined,'bold');doc.setFontSize(6);doc.setTextColor(...B);
-    doc.text('Statistiques de la période',lx,blkY+17);
-    // Tableau stats (autoTable pour alignement parfait)
-    const _fmtPct2=(v,t)=>t>0?Math.min(100,(v/t*100)).toFixed(0)+'%':'—';
-    doc.autoTable({
-      head:[[
-        {content:'Réseau posé',styles:{fillColor:B,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
-        {content:'Branchements',styles:{fillColor:G,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
-        {content:'Remise en état',styles:{fillColor:O,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}},
-        {content:'Raccordements',styles:{fillColor:P,halign:'center',textColor:[255,255,255],fontStyle:'bold',fontSize:6,cellPadding:2}}
-      ]],
-      body:[[
-        {content:tL.toFixed(0)+' m / '+projectTargets.linearReseau+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
-        {content:tB+' u / '+projectTargets.branchements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
-        {content:tRem.toFixed(0)+' m / '+projectTargets.remiseEtat+' m',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}},
-        {content:tRac+' u / '+projectTargets.raccordements+' u',styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:[30,45,61],cellPadding:[2,1,0,1]}}
-      ],[
-        {content:_fmtPct2(tL,projectTargets.linearReseau),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:B,cellPadding:[0,1,2,1]}},
-        {content:_fmtPct2(tB,projectTargets.branchements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:G,cellPadding:[0,1,2,1]}},
-        {content:_fmtPct2(tRem,projectTargets.remiseEtat),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:O,cellPadding:[0,1,2,1]}},
-        {content:_fmtPct2(tRac,projectTargets.raccordements),styles:{halign:'center',fontStyle:'bold',fontSize:6.5,textColor:P,cellPadding:[0,1,2,1]}}
-      ]],
-      startY:blkY+19,
-      styles:{cellPadding:2,fontSize:6.5,halign:'center',valign:'middle'},
-      headStyles:{cellPadding:2,fontSize:6,halign:'center'},
-      margin:{left:16,right:16},
-      tableWidth:conclW-4,
-      didDrawPage:function(){}
+    doc.text('Statistiques de la période',lxC,sepYC+SH);
+    // Tableau 4 colonnes dessiné manuellement
+    const colsC=[
+      {lbl:'Réseau posé',   val:tL.toFixed(0)+' m / '+projectTargets.linearReseau+' m',  pct:_fmtPct2(tL,projectTargets.linearReseau),  col:B},
+      {lbl:'Branchements',  val:tB+' u / '+projectTargets.branchements+' u',               pct:_fmtPct2(tB,projectTargets.branchements),   col:G},
+      {lbl:'Remise en état',val:tRem.toFixed(0)+' m / '+projectTargets.remiseEtat+' m',  pct:_fmtPct2(tRem,projectTargets.remiseEtat),  col:O},
+      {lbl:'Raccordements', val:tRac+' u / '+projectTargets.raccordements+' u',            pct:_fmtPct2(tRac,projectTargets.raccordements),col:P}
+    ];
+    const tblXC=16, tblWC=conclW-4, cWC=tblWC/4;
+    const tblYC=sepYC+SH+1;
+    colsC.forEach((c,i)=>{
+      const cx=tblXC+i*cWC;
+      doc.setFillColor(...c.col);doc.rect(cx,tblYC,cWC,RH1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(5.5);doc.setFont(undefined,'bold');
+      doc.text(c.lbl,cx+cWC/2,tblYC+RH1/2+1,{align:'center'});
+      doc.setFillColor(255,255,255);doc.rect(cx,tblYC+RH1,cWC,RH1,'F');
+      doc.setTextColor(30,45,61);doc.setFontSize(5.8);doc.setFont(undefined,'bold');
+      doc.text(c.val,cx+cWC/2,tblYC+RH1+RH1/2+1,{align:'center'});
+      doc.setFillColor(248,250,253);doc.rect(cx,tblYC+RH1*2,cWC,RH2,'F');
+      doc.setTextColor(...c.col);doc.setFontSize(6);doc.setFont(undefined,'bold');
+      doc.text(c.pct,cx+cWC/2,tblYC+RH1*2+RH2/2+1.5,{align:'center'});
+      doc.setDrawColor(220,228,238);doc.setLineWidth(0.15);
+      doc.rect(cx,tblYC,cWC,RH1+RH1+RH2,'D');
     });
     doc.setTextColor(...DARK);
   }
