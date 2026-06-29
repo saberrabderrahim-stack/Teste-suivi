@@ -1411,9 +1411,9 @@ async function _doPDF(qrDataUrl){
     const now2=new Date();
     const _dn=now2.toLocaleDateString('fr-FR'), _tn=now2.toLocaleTimeString('fr-FR');
     const conclW=pW-28;
-    const TH=6, IH=9, SH=5, RH1=7, RH2=6, PAD=6;
+    const TH=6, IH=8, SH=4, RH1=6, RH2=5, PAD=3;
     const conclH=TH+1+IH+1+SH+RH1+RH2+PAD;
-    const conclY=pH-conclH-6;
+    const conclY=pH-conclH-11;
     // Titre
     doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,TH,1.5,1.5,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
@@ -2445,9 +2445,9 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
   {
     const _fmtPct2=(v,t)=>t>0?Math.min(100,(v/t*100)).toFixed(0)+'%':'—';
     const conclW=pW-28;
-    const TH=6, IH=9, SH=5, RH1=7, RH2=6, PAD=6;
+    const TH=6, IH=8, SH=4, RH1=6, RH2=5, PAD=3;
     const conclH=TH+1+IH+1+SH+RH1+RH2+PAD;
-    const conclY=pH-conclH-6;
+    const conclY=pH-conclH-11;
     // Titre
     doc.setFillColor(...B);doc.roundedRect(14,conclY,conclW,TH,1.5,1.5,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,'bold');
