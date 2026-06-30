@@ -276,6 +276,12 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
         </div>
       </div>
 
+      <!-- AVANCEMENT FINANCIÈRE -->
+      <div id="finance-section" class="pt-3 border-t space-y-3" style="border-color:var(--srm-border)">
+        <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-sack-dollar mr-1" style="color:#b45309"></i>Avancement Financière</p>
+        <div id="finance-bars-container" class="space-y-2"></div>
+      </div>
+
       <!-- DÉLAI ANALYSIS -->
       <div id="delai-section" class="pt-3 border-t space-y-2 hidden" style="border-color:var(--srm-border)">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-hourglass-half mr-1" style="color:#7c3aed"></i>Analyse du Délai Contractuel</p>
@@ -605,6 +611,64 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
           </div>
         </div>
       </div>
+
+      <!-- 7. BUDGET -->
+      <div class="srm-card overflow-hidden">
+        <button onclick="toggleSection('budget-content')" class="accordion-btn w-full flex justify-between items-center p-3.5 text-left">
+          <span class="flex items-center gap-2 font-bold text-sm" style="color:var(--srm-text)">
+            <span class="section-header-icon" style="background:#fef3c7;color:#b45309"><i class="fa-solid fa-coins"></i></span>
+            7 — Budget
+          </span>
+          <i class="fa-solid fa-chevron-down text-xs text-gray-400 transition-transform" id="budget-content-icon"></i>
+        </button>
+        <div id="budget-content" class="accordion-content">
+          <form onsubmit="handleBudgetFormSubmit(event)" class="p-4 border-t space-y-3" style="border-color:var(--srm-border)">
+            <input type="hidden" class="budget-record-id">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold mb-1.5 text-gray-600">Commande N° <span class="text-red-500">*</span></label>
+                <input type="text" required class="field-budget-commande srm-input">
+              </div>
+              <div>
+                <label class="block text-xs font-bold mb-2 text-gray-600">Phase <span class="text-red-500">*</span></label>
+                <div class="grid grid-cols-2 gap-2">
+                  <label class="flex items-center justify-center p-2.5 border rounded-xl cursor-pointer text-xs font-bold hover:bg-amber-50 transition-colors" style="border-color:#fde68a;color:#b45309"><input type="radio" name="budget-phase" value="Réseau" required class="mr-1.5"> Réseau</label>
+                  <label class="flex items-center justify-center p-2.5 border rounded-xl cursor-pointer text-xs font-bold hover:bg-amber-50 transition-colors" style="border-color:#fde68a;color:#b45309"><input type="radio" name="budget-phase" value="Branchements" class="mr-1.5"> Branchements</label>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold mb-1.5 text-gray-600">Date de décompte <span class="text-red-500">*</span></label>
+                <input type="date" required class="field-budget-date srm-input">
+              </div>
+              <div>
+                <label class="block text-xs font-bold mb-1.5 text-gray-600">Valeur de décompte (DH) <span class="text-red-500">*</span></label>
+                <input type="number" step="0.01" required class="field-budget-valeur srm-input font-mono-custom" placeholder="0.00">
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+              <button type="button" onclick="cancelBudgetEdit(this)" class="btn-budget-cancel hidden px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 border hover:bg-gray-100" style="border-color:var(--srm-border)">Annuler</button>
+              <button type="submit" class="btn-budget-submit srm-btn-primary" style="background:linear-gradient(135deg,#d97706,#b45309);"><i class="fa-solid fa-plus"></i> <span>Ajouter</span></button>
+            </div>
+          </form>
+          <div id="budget-table-wrap" class="overflow-x-auto border-t" style="border-color:var(--srm-border)">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b uppercase font-black" style="background:var(--srm-gray);border-color:var(--srm-border);color:var(--srm-text-muted)">
+                  <th class="p-2.5">Commande N°</th>
+                  <th class="p-2.5">Phase</th>
+                  <th class="p-2.5">Date</th>
+                  <th class="p-2.5">Valeur (DH)</th>
+                  <th class="p-2.5 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="budget-table-body"></tbody>
+            </table>
+            <div id="budget-no-data-msg" class="text-center py-6 text-gray-400 text-xs hidden"><i class="fa-regular fa-circle-question block text-2xl mb-1.5 text-gray-300"></i>Aucun décompte enregistré.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══ REGISTRE DES ACTIVITÉS ═══ -->
@@ -795,10 +859,11 @@ const LOGO_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARcAAAC0CAMAAACJ
 let records = JSON.parse(localStorage.getItem('water_project_records')) || [];
 if(typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 let capturedPhotos = JSON.parse(localStorage.getItem('water_project_photos')) || [];
+let budgetEntries = JSON.parse(localStorage.getItem('water_project_budget')) || [];
 let autoCapturedLocation = { text:"Non disponible", mapsUrl:"" };
 let loadedFileName = null;
 let currentUser = null;
-let projectTargets = { linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMois:0 };
+let projectTargets = { linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMois:0, budgetReseau:0, budgetBranchements:0 };
 window._pTargets = projectTargets;
 
 const USERS = {
@@ -922,6 +987,8 @@ function importPreviousExcel(event){
         projectTargets.remiseEtat=parseFloat(ts[3]?ts[3][1]:0)||0;
         projectTargets.raccordements=parseFloat(ts[4]?ts[4][1]:0)||0;
         projectTargets.delaiMois=parseFloat(ts[5]?ts[5][1]:0)||0;
+        projectTargets.budgetReseau=parseFloat(ts[6]?ts[6][1]:0)||0;
+        projectTargets.budgetBranchements=parseFloat(ts[7]?ts[7][1]:0)||0;
         window._pTargets=projectTargets;
       }
       const sn=wb.SheetNames.includes("Registre Général")?"Registre Général":wb.SheetNames[0];
@@ -1146,7 +1213,9 @@ function buildWorkbook(){
     ["Nombre total de branchements à réaliser (u)",projectTargets.branchements],
     ["Linéaire total de remise en état (m)",projectTargets.remiseEtat],
     ["Nombre de raccordements à réaliser (u)",projectTargets.raccordements],
-    ["Délai d'exécution (mois)",projectTargets.delaiMois]
+    ["Délai d'exécution (mois)",projectTargets.delaiMois],
+    ["Budget Réseau (DH)",projectTargets.budgetReseau||0],
+    ["Budget Branchements (DH)",projectTargets.budgetBranchements||0]
   ];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(tRows),"total à réaliser");
 
@@ -1639,6 +1708,73 @@ async function _doPDF(qrDataUrl){
       doc.setTextColor(...DARK);Yd+=16;
     }
 
+
+    // ── AVANCEMENT FINANCIÈRE ──
+    {
+      const fin=computeBudgetAnalysis();
+      if(fin.totalBudget>0){
+        doc.setFillColor(217,119,6);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
+        doc.text('AVANCEMENT FINANCIÈRE',16,Yd+4);
+        doc.setTextColor(...DARK);Yd+=9;
+
+        const fbW=pW-28, fbH=4, fbX=14;
+        const finItems=[
+          {n:'Budget Réseau', d:fin.consReseau.toFixed(2)+' DH', t:fin.budR.toFixed(2)+' DH', p:fin.pctR, c:B, show:fin.budR>0},
+          {n:'Budget Branchements', d:fin.consBranch.toFixed(2)+' DH', t:fin.budB.toFixed(2)+' DH', p:fin.pctB, c:G, show:fin.budB>0}
+        ];
+        finItems.forEach(it=>{
+          if(!it.show)return;
+          doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+          doc.text(it.n,fbX,Yd+3);
+          doc.setFont(undefined,'normal');doc.setTextColor(100,120,140);
+          doc.text(it.d+' / '+it.t,pW-14,Yd+3,{align:'right'});
+          doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+          const pf=Math.max(0,it.p/100*fbW);
+          if(pf>0){doc.setFillColor(...it.c);doc.roundedRect(fbX,Yd+4.2,pf,fbH,1,1,'F');}
+          doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...it.c);
+          doc.text(it.p.toFixed(1)+'%',fbX+fbW/2,Yd+4.2+fbH/2+1,{align:'center'});
+          doc.setTextColor(...DARK);
+          Yd+=4.2+fbH+3;
+        });
+
+        doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+        doc.text('Budget Total Consommé',fbX,Yd+3);
+        doc.setFont(undefined,'normal');doc.setTextColor(180,83,9);
+        doc.text(fin.pctTotal.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
+        doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+        let ft=Math.max(0,fin.pctTotal/100*fbW);
+        if(ft>0){doc.setFillColor(217,119,6);doc.roundedRect(fbX,Yd+4.2,ft,fbH,1,1,'F');}
+        doc.setTextColor(...DARK);Yd+=4.2+fbH+1;
+        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
+        doc.text(fin.totalConsomme.toFixed(2)+' DH / '+fin.totalBudget.toFixed(2)+' DH',pW-14,Yd+2,{align:'right'});
+        doc.setTextColor(...DARK);Yd+=2;
+
+        doc.setFontSize(5.5);doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
+        doc.text('Théorique (temps écoulé)',fbX,Yd+4.6);
+        doc.setFillColor(230,233,238);doc.roundedRect(fbX+38,Yd+2.4,fbW-38,3,1,1,'F');
+        const tf2=Math.max(0,delaiInfo.timePct/100*(fbW-38));
+        if(tf2>0){doc.setFillColor(156,163,175);doc.roundedRect(fbX+38,Yd+2.4,tf2,3,1,1,'F');}
+        doc.setFontSize(4.8);doc.setFont(undefined,'bold');doc.setTextColor(120,130,140);
+        doc.text(delaiInfo.timePct.toFixed(1)+'%',fbX+38+(fbW-38)/2,Yd+4.3,{align:'center'});
+        doc.setTextColor(...DARK);Yd+=8;
+
+        const moisRestants=Math.max(1,delaiInfo.remainingDays/30.4375);
+        const restantBudget=Math.max(0,fin.totalBudget-fin.totalConsomme);
+        const valTheoMensuelle=restantBudget/moisRestants;
+        doc.setFillColor(255,251,235);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'F');
+        doc.setDrawColor(252,211,77);doc.setLineWidth(0.25);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'D');
+        doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(180,83,9);
+        doc.text('Valeur théorique à consommer par mois (mois restants : '+moisRestants.toFixed(1)+') :',17,Yd+4);
+        doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(120,53,15);
+        doc.text(valTheoMensuelle.toFixed(2)+' DH / mois',pW-17,Yd+4,{align:'right'});
+        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(146,64,14);
+        doc.text('Budget restant : '+restantBudget.toFixed(2)+' DH',17,Yd+7.5);
+        doc.setTextColor(...DARK);
+        Yd+=9+6;
+      }
+    }
+
     // Signatures placed on this page (page 2) — fills remaining space
     const bWsC=83, bHsC=28, sGC=7;
     function sigBoxCompact(x,y,title,sub){
@@ -1782,7 +1918,79 @@ function toggleIdentificationsOpt(radio){
   if(radio.value==='identification'&&radio.checked){sb.classList.remove('hidden');ss.setAttribute('required','true');}
   else{sb.classList.add('hidden');ss.removeAttribute('required');ss.value='';}
 }
-function initApp(){updateDateTime();setInterval(updateDateTime,1000);renderTable();calculateStatistics();renderProgressBars();}
+function initApp(){updateDateTime();setInterval(updateDateTime,1000);renderTable();calculateStatistics();renderProgressBars();renderBudgetTable();}
+
+// ════════════════════════════ BUDGET ════════════════════════════
+function handleBudgetFormSubmit(e){
+  e.preventDefault();const form=e.target;const idInput=form.querySelector('.budget-record-id').value;
+  const commande=form.querySelector('.field-budget-commande').value.trim();
+  const phase=form.querySelector('input[name="budget-phase"]:checked')?.value||'';
+  const date=form.querySelector('.field-budget-date').value;
+  const valeur=parseFloat(form.querySelector('.field-budget-valeur').value)||0;
+  if(!commande||!phase||!date){showToast('Veuillez remplir tous les champs obligatoires.','error');return;}
+  const entry={id:idInput||('bud_'+Date.now()),commande,phase,date,valeur,saisiePar:currentUser?(USERS[currentUser]?.displayName||currentUser):'—'};
+  if(idInput){const idx=budgetEntries.findIndex(b=>b.id===idInput);if(idx>-1)budgetEntries[idx]=entry;}
+  else budgetEntries.push(entry);
+  localStorage.setItem('water_project_budget',JSON.stringify(budgetEntries));
+  form.reset();form.querySelector('.budget-record-id').value='';
+  form.querySelector('.btn-budget-cancel').classList.add('hidden');
+  renderBudgetTable();renderProgressBars();
+  showToast(idInput?'Décompte modifié avec succès.':'Décompte ajouté avec succès.');
+}
+function renderBudgetTable(){
+  const tb=document.getElementById('budget-table-body');if(!tb)return;
+  const nd=document.getElementById('budget-no-data-msg');tb.innerHTML='';
+  if(!budgetEntries.length){nd.classList.remove('hidden');return;}nd.classList.add('hidden');
+  const sorted=[...budgetEntries].sort((a,b)=>b.date.localeCompare(a.date));
+  sorted.forEach(b=>{
+    const tr=document.createElement('tr');tr.className='table-row-hover transition-colors border-b';tr.style.borderColor='var(--srm-border)';
+    const phaseColor=b.phase==='Réseau'?'var(--srm-blue)':'var(--srm-green)';
+    tr.innerHTML=`<td class="p-2.5 font-bold text-gray-700">${b.commande}</td>
+      <td class="p-2.5"><span class="cat-badge" style="background:${b.phase==='Réseau'?'var(--srm-blue-light)':'var(--srm-green-light)'};color:${phaseColor}">${b.phase}</span></td>
+      <td class="p-2.5 text-gray-500">${new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')}</td>
+      <td class="p-2.5 font-mono-custom font-bold text-gray-800">${b.valeur.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})} DH</td>
+      <td class="p-2.5 text-center">
+        <button onclick="editBudgetEntry('${b.id}')" class="p-1.5 rounded-lg text-xs hover:bg-blue-50 transition-colors" style="color:var(--srm-blue)" title="Modifier"><i class="fa-solid fa-pen"></i></button>
+        <button onclick="deleteBudgetEntry('${b.id}')" class="p-1.5 rounded-lg text-xs hover:bg-red-50 text-red-500 transition-colors" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+function editBudgetEntry(id){
+  const b=budgetEntries.find(x=>x.id===id);if(!b)return;
+  const cont=document.getElementById('budget-content');if(!cont.classList.contains('open'))toggleSection('budget-content');
+  const form=cont.querySelector('form');
+  form.querySelector('.budget-record-id').value=b.id;
+  form.querySelector('.field-budget-commande').value=b.commande;
+  form.querySelector(`input[name="budget-phase"][value="${b.phase}"]`).checked=true;
+  form.querySelector('.field-budget-date').value=b.date;
+  form.querySelector('.field-budget-valeur').value=b.valeur;
+  form.querySelector('.btn-budget-cancel').classList.remove('hidden');
+  form.querySelector('.btn-budget-submit span').innerText='Mettre à jour';
+}
+function cancelBudgetEdit(btn){
+  const form=btn.closest('form');form.reset();form.querySelector('.budget-record-id').value='';
+  btn.classList.add('hidden');form.querySelector('.btn-budget-submit span').innerText='Ajouter';
+}
+function deleteBudgetEntry(id){
+  if(confirm('Confirmer la suppression de ce décompte ?')){
+    budgetEntries=budgetEntries.filter(b=>b.id!==id);
+    localStorage.setItem('water_project_budget',JSON.stringify(budgetEntries));
+    renderBudgetTable();renderProgressBars();
+    showToast('Décompte supprimé.','error');
+  }
+}
+// Calcul pur (réutilisable HTML + PDF)
+function computeBudgetAnalysis(){
+  const consReseau=budgetEntries.filter(b=>b.phase==='Réseau').reduce((s,b)=>s+b.valeur,0);
+  const consBranch=budgetEntries.filter(b=>b.phase==='Branchements').reduce((s,b)=>s+b.valeur,0);
+  const budR=projectTargets.budgetReseau||0, budB=projectTargets.budgetBranchements||0;
+  const pctR=budR>0?Math.min(100,consReseau/budR*100):0;
+  const pctB=budB>0?Math.min(100,consBranch/budB*100):0;
+  const totalBudget=budR+budB, totalConsomme=consReseau+consBranch;
+  const pctTotal=totalBudget>0?Math.min(100,totalConsomme/totalBudget*100):0;
+  return{consReseau,consBranch,budR,budB,pctR,pctB,totalBudget,totalConsomme,pctTotal};
+}
 function handleFormSubmit(e,category){
   e.preventDefault();const form=e.target;const idInput=form.querySelector('.record-id').value;
   const projet=document.getElementById('global-project-name').value.trim()||'Projet non spécifié';
@@ -1943,6 +2151,60 @@ function renderProgressBars(){
   }
 
   renderDelaiAnalysis(c, globalPct);
+  renderFinanceBars(timePct);
+}
+
+// ════════════════════════════ AVANCEMENT FINANCIÈRE ════════════════════════════
+function renderFinanceBars(timePct){
+  const container=document.getElementById('finance-bars-container');
+  if(!container)return;container.innerHTML='';
+  const f=computeBudgetAnalysis();
+  if(f.totalBudget<=0){
+    container.innerHTML='<p class="text-xs text-gray-400 italic">Aucun budget renseigné (feuille "total à réaliser", cellules B7/B8).</p>';
+    return;
+  }
+  const fmtDH=v=>v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' DH';
+  const items=[
+    {name:'Budget Réseau',done:fmtDH(f.consReseau),target:fmtDH(f.budR),p:f.pctR,color:'var(--srm-blue)',show:f.budR>0},
+    {name:'Budget Branchements',done:fmtDH(f.consBranch),target:fmtDH(f.budB),p:f.pctB,color:'var(--srm-green)',show:f.budB>0},
+  ];
+  items.forEach(it=>{
+    if(!it.show)return;
+    const div=document.createElement('div');div.className='space-y-0.5';
+    div.innerHTML=
+      '<div class="flex justify-between items-center" style="margin-bottom:2px;">'+
+        '<span class="text-xs font-semibold text-gray-600">'+it.name+'</span>'+
+        '<span class="text-xs text-gray-500" style="font-size:10px;">'+it.done+' / '+it.target+'</span>'+
+      '</div>'+
+      '<div class="progress-bar-bg" style="position:relative;height:7px;">'+
+        '<div class="progress-bar-fill" style="width:'+it.p+'%;background:'+it.color+';height:7px;"></div>'+
+        '<span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:9px;font-weight:900;color:'+it.color+';white-space:nowrap;">'+it.p.toFixed(1)+'%</span>'+
+      '</div>';
+    container.appendChild(div);
+  });
+  // Total
+  const totalDiv=document.createElement('div');totalDiv.className='pt-2';
+  let theoBarHTML='';
+  if(timePct!==null && timePct!==undefined){
+    theoBarHTML=
+      '<div style="display:flex;align-items:center;gap:4px;margin-top:2px;">'+
+        '<span style="font-size:9px;color:#9ca3af;font-weight:600;white-space:nowrap;">Théorique</span>'+
+        '<div style="flex:1;position:relative;height:5px;">'+
+          '<div style="width:100%;height:5px;background:#e5e7eb;border-radius:3px;"></div>'+
+          '<div style="position:absolute;top:0;left:0;width:'+timePct+'%;height:5px;background:#9ca3af;border-radius:3px;border:1px dashed #6b7280;box-sizing:border-box;"></div>'+
+          '<span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:7.5px;font-weight:800;color:#6b7280;white-space:nowrap;">'+timePct.toFixed(1)+'%</span>'+
+        '</div>'+
+      '</div>';
+  }
+  totalDiv.innerHTML=
+    '<div class="flex justify-between items-center mb-1">'+
+      '<span class="text-xs font-bold text-gray-600">Budget Total Consommé</span>'+
+      '<span class="text-sm font-black" style="color:#b45309">'+f.pctTotal.toFixed(1)+'%</span>'+
+    '</div>'+
+    '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:'+f.pctTotal+'%;background:linear-gradient(90deg,#d97706,#b45309)"></div></div>'+
+    theoBarHTML+
+    '<p class="text-[10px] text-gray-400 mt-1.5 text-right">'+fmtDH(f.totalConsomme)+' / '+fmtDH(f.totalBudget)+'</p>';
+  container.appendChild(totalDiv);
 }
 
 // ════════════════════════════ ANALYSE DU DÉLAI ════════════════════════════
@@ -2680,6 +2942,73 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       doc.setTextColor(220,38,38);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
       doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+5.8,{align:'center'});
       doc.setTextColor(...DARK);Yd+=16;
+    }
+
+
+    // ── AVANCEMENT FINANCIÈRE ──
+    {
+      const fin=computeBudgetAnalysis();
+      if(fin.totalBudget>0){
+        doc.setFillColor(217,119,6);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
+        doc.text('AVANCEMENT FINANCIÈRE',16,Yd+4);
+        doc.setTextColor(...DARK);Yd+=9;
+
+        const fbW=pW-28, fbH=4, fbX=14;
+        const finItems=[
+          {n:'Budget Réseau', d:fin.consReseau.toFixed(2)+' DH', t:fin.budR.toFixed(2)+' DH', p:fin.pctR, c:B, show:fin.budR>0},
+          {n:'Budget Branchements', d:fin.consBranch.toFixed(2)+' DH', t:fin.budB.toFixed(2)+' DH', p:fin.pctB, c:G, show:fin.budB>0}
+        ];
+        finItems.forEach(it=>{
+          if(!it.show)return;
+          doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+          doc.text(it.n,fbX,Yd+3);
+          doc.setFont(undefined,'normal');doc.setTextColor(100,120,140);
+          doc.text(it.d+' / '+it.t,pW-14,Yd+3,{align:'right'});
+          doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+          const pf=Math.max(0,it.p/100*fbW);
+          if(pf>0){doc.setFillColor(...it.c);doc.roundedRect(fbX,Yd+4.2,pf,fbH,1,1,'F');}
+          doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...it.c);
+          doc.text(it.p.toFixed(1)+'%',fbX+fbW/2,Yd+4.2+fbH/2+1,{align:'center'});
+          doc.setTextColor(...DARK);
+          Yd+=4.2+fbH+3;
+        });
+
+        doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+        doc.text('Budget Total Consommé',fbX,Yd+3);
+        doc.setFont(undefined,'normal');doc.setTextColor(180,83,9);
+        doc.text(fin.pctTotal.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
+        doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+        let ft=Math.max(0,fin.pctTotal/100*fbW);
+        if(ft>0){doc.setFillColor(217,119,6);doc.roundedRect(fbX,Yd+4.2,ft,fbH,1,1,'F');}
+        doc.setTextColor(...DARK);Yd+=4.2+fbH+1;
+        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
+        doc.text(fin.totalConsomme.toFixed(2)+' DH / '+fin.totalBudget.toFixed(2)+' DH',pW-14,Yd+2,{align:'right'});
+        doc.setTextColor(...DARK);Yd+=2;
+
+        doc.setFontSize(5.5);doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
+        doc.text('Théorique (temps écoulé)',fbX,Yd+4.6);
+        doc.setFillColor(230,233,238);doc.roundedRect(fbX+38,Yd+2.4,fbW-38,3,1,1,'F');
+        const tf2=Math.max(0,delaiInfo.timePct/100*(fbW-38));
+        if(tf2>0){doc.setFillColor(156,163,175);doc.roundedRect(fbX+38,Yd+2.4,tf2,3,1,1,'F');}
+        doc.setFontSize(4.8);doc.setFont(undefined,'bold');doc.setTextColor(120,130,140);
+        doc.text(delaiInfo.timePct.toFixed(1)+'%',fbX+38+(fbW-38)/2,Yd+4.3,{align:'center'});
+        doc.setTextColor(...DARK);Yd+=8;
+
+        const moisRestants=Math.max(1,delaiInfo.remainingDays/30.4375);
+        const restantBudget=Math.max(0,fin.totalBudget-fin.totalConsomme);
+        const valTheoMensuelle=restantBudget/moisRestants;
+        doc.setFillColor(255,251,235);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'F');
+        doc.setDrawColor(252,211,77);doc.setLineWidth(0.25);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'D');
+        doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(180,83,9);
+        doc.text('Valeur théorique à consommer par mois (mois restants : '+moisRestants.toFixed(1)+') :',17,Yd+4);
+        doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(120,53,15);
+        doc.text(valTheoMensuelle.toFixed(2)+' DH / mois',pW-17,Yd+4,{align:'right'});
+        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(146,64,14);
+        doc.text('Budget restant : '+restantBudget.toFixed(2)+' DH',17,Yd+7.5);
+        doc.setTextColor(...DARK);
+        Yd+=9+6;
+      }
     }
 
     // Signatures placed on this page (page 2) — fills remaining space
