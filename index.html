@@ -800,8 +800,18 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
             <i class="fa-regular fa-file-pdf"></i> Rapport PDF Consolidé
           </button>
         </div>
-        <div id="mp-kpi-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
+        <div id="mp-kpi-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4"></div>
         <div id="mp-progress-bars" class="space-y-3"></div>
+      </div>
+
+      <!-- FINANCE / BUDGET SUMMARY -->
+      <div id="mp-finance-card" class="srm-card p-4 hidden">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="section-header-icon" style="background:#fef3c7;color:#b45309;"><i class="fa-solid fa-sack-dollar"></i></span>
+          <h3 class="text-sm font-black uppercase tracking-wider" style="color:var(--srm-text)">Analyse Financière Consolidée</h3>
+        </div>
+        <div id="mp-finance-total" class="mb-4"></div>
+        <div id="mp-budget-bars" class="space-y-3"></div>
       </div>
 
       <!-- CHARTS ROW 1 -->
@@ -840,6 +850,18 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
         </div>
       </div>
 
+      <!-- CHARTS ROW 4 — BUDGET -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-sack-dollar mr-1" style="color:#d97706"></i>Budget consommé vs cible par projet (DH)</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-budget"></canvas></div>
+        </div>
+        <div class="srm-card p-4">
+          <p class="text-xs font-bold uppercase tracking-wider mb-3" style="color:var(--srm-text)"><i class="fa-solid fa-chart-pie mr-1" style="color:#d97706"></i>Répartition du budget consommé (Réseau / Branchements)</p>
+          <div style="position:relative;height:220px;"><canvas id="chart-budget-phase"></canvas></div>
+        </div>
+      </div>
+
       <!-- DETAILED TABLE -->
       <div class="srm-card p-4">
         <div class="flex items-center gap-2 mb-4">
@@ -862,6 +884,10 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
                 <th class="p-2.5 font-bold">Vannes (u)</th>
                 <th class="p-2.5 font-bold">Avt. Global</th>
                 <th class="p-2.5 font-bold">Jours actifs</th>
+                <th class="p-2.5 font-bold">Budget Consommé (DH)</th>
+                <th class="p-2.5 font-bold">Budget Cible (DH)</th>
+                <th class="p-2.5 font-bold">% Budget</th>
+                <th class="p-2.5 font-bold">Coût / m (DH)</th>
               </tr>
             </thead>
             <tbody id="mp-detail-tbody"></tbody>
@@ -1274,6 +1300,27 @@ function buildWorkbook(){
     };
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(detRows),"Détails par Élément");
+
+  // SHEET 5: Budget (décomptes individuels)
+  const budgetSorted=[...budgetEntries].sort((a,b)=>a.date.localeCompare(b.date));
+  const fin=computeBudgetAnalysis();
+  const budgetRows=budgetSorted.map(b=>({
+    'N° Commande':b.commande,
+    'Phase':b.phase,
+    'Date':b.date,
+    'Valeur (DH)':b.valeur
+  }));
+  const wsBudget=XLSX.utils.json_to_sheet(budgetRows.length?budgetRows:[{'N° Commande':'','Phase':'','Date':'','Valeur (DH)':''}]);
+  XLSX.utils.sheet_add_aoa(wsBudget,[
+    [],[],
+    ["════ SYNTHÈSE BUDGET ════"],
+    ["Budget Réseau (DH)",fin.budR,"Consommé Réseau (DH)",fin.consReseau.toFixed(2)],
+    ["Budget Branchements (DH)",fin.budB,"Consommé Branchements (DH)",fin.consBranch.toFixed(2)],
+    ["Budget Total (DH)",fin.totalBudget,"Consommé Total (DH)",fin.totalConsomme.toFixed(2)],
+    ["% Consommé",fin.pctTotal.toFixed(2)+"%"]
+  ],{origin:-1});
+  XLSX.utils.book_append_sheet(wb,wsBudget,"Budget");
+
   return wb;
 }
 
@@ -3275,13 +3322,16 @@ function mpProcessFiles(files){
 
         // Parse targets
         const tgtSheet = wb.SheetNames.find(s => s.toLowerCase().includes('total'));
-        let targets = {linearReseau:0, branchements:0, remiseEtat:0, raccordements:0};
+        let targets = {linearReseau:0, branchements:0, remiseEtat:0, raccordements:0, delaiMois:0, budgetReseau:0, budgetBranchements:0};
         if(tgtSheet){
           const ts = XLSX.utils.sheet_to_json(wb.Sheets[tgtSheet], {header:1});
           targets.linearReseau  = parseFloat(ts[1]?ts[1][1]:0)||0;
           targets.branchements  = parseFloat(ts[2]?ts[2][1]:0)||0;
           targets.remiseEtat    = parseFloat(ts[3]?ts[3][1]:0)||0;
           targets.raccordements = parseFloat(ts[4]?ts[4][1]:0)||0;
+          targets.delaiMois     = parseFloat(ts[5]?ts[5][1]:0)||0;
+          targets.budgetReseau       = parseFloat(ts[6]?ts[6][1]:0)||0;
+          targets.budgetBranchements = parseFloat(ts[7]?ts[7][1]:0)||0;
         }
 
         // Parse records
@@ -3291,11 +3341,26 @@ function mpProcessFiles(files){
         const projName = (jd[0] && jd[0]['Projet']) ? jd[0]['Projet'] : file.name.replace(/\.xlsx?$/i,'');
         const recs = jd.map((row,i) => parseRow(row, i));
 
+        // Parse budget entries (décomptes)
+        let budgetEntriesProj = [];
+        const budgetSheet = wb.SheetNames.find(s => s.toLowerCase().includes('budget'));
+        if(budgetSheet){
+          const bd = XLSX.utils.sheet_to_json(wb.Sheets[budgetSheet]);
+          budgetEntriesProj = bd
+            .map(row => ({
+              commande: row['N° Commande'] || row['Commande'] || '',
+              phase: row['Phase'] || '',
+              date: row['Date'] || '',
+              valeur: parseFloat(row['Valeur (DH)'] ?? row['Valeur'] ?? 0) || 0
+            }))
+            .filter(b => b.date && (b.phase === 'Réseau' || b.phase === 'Branchements'));
+        }
+
         // Check duplicate
         const existingIdx = mpProjects.findIndex(p => p.name === projName);
         if(existingIdx >= 0) mpProjects.splice(existingIdx, 1);
 
-        mpProjects.push({ name: projName, records: recs, targets, fileName: file.name });
+        mpProjects.push({ name: projName, records: recs, targets, budgetEntries: budgetEntriesProj, fileName: file.name });
       } catch(err){ console.error('Error reading', file.name, err); showToast('Erreur lecture : '+file.name, 'error'); }
       pending--;
       if(pending === 0) mpRefreshFilesList();
@@ -3322,6 +3387,7 @@ function mpRefreshFilesList(){
     </div>
     <div class="flex items-center gap-2 flex-shrink-0">
       <span class="text-[10px] px-2 py-0.5 rounded font-bold" style="background:var(--srm-blue-light);color:var(--srm-blue)">Obj. Réseau: ${proj.targets.linearReseau}m</span>
+      ${(proj.targets.budgetReseau+proj.targets.budgetBranchements)>0?`<span class="text-[10px] px-2 py-0.5 rounded font-bold" style="background:#fef3c7;color:#92400e">Budget: ${mpFmtDH(proj.targets.budgetReseau+proj.targets.budgetBranchements)}</span>`:''}
       <button onclick="mpRemoveProject(${idx})" class="text-red-400 hover:text-red-600 text-xs p-1"><i class="fa-solid fa-xmark"></i></button>
     </div>`;
     container.appendChild(div);
@@ -3343,6 +3409,20 @@ function mpClearAll(){
 }
 
 // ── AGGREGATION HELPERS ──
+function mpFmtDH(v){ return (v||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' DH'; }
+
+function mpGetBudgetCumuls(budgetEntries, targets){
+  const entries = budgetEntries || [];
+  const consReseau = entries.filter(b=>b.phase==='Réseau').reduce((s,b)=>s+(b.valeur||0),0);
+  const consBranch = entries.filter(b=>b.phase==='Branchements').reduce((s,b)=>s+(b.valeur||0),0);
+  const budR = targets.budgetReseau||0, budB = targets.budgetBranchements||0;
+  const pctR = budR>0?Math.min(100,consReseau/budR*100):0;
+  const pctB = budB>0?Math.min(100,consBranch/budB*100):0;
+  const totalBudget = budR+budB, totalConsomme = consReseau+consBranch;
+  const pctTotal = totalBudget>0?Math.min(100,totalConsomme/totalBudget*100):0;
+  return { consReseau, consBranch, budR, budB, pctR, pctB, totalBudget, totalConsomme, pctTotal };
+}
+
 function mpGetCumuls(records){
   const res = {75:0,90:0,110:0,160:0,225:0,315:0};
   const branch = {DN32:0, DN50:0};
@@ -3389,12 +3469,16 @@ function mpAnalyze(){
     cumuls: mpGetCumuls(p.records),
     avt: null
   }));
-  results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); });
+  results.forEach(r => {
+    r.avt = mpGetAvancement(r.cumuls, r.targets);
+    r.budget = mpGetBudgetCumuls(r.budgetEntries, r.targets);
+  });
 
   document.getElementById('mp-results').classList.remove('hidden');
 
   mpRenderKPI(results);
   mpRenderProgressBars(results);
+  mpRenderBudget(results);
   mpRenderCharts(results);
   mpRenderTable(results);
 
@@ -3409,11 +3493,18 @@ function mpRenderKPI(results){
   const totalRac = results.reduce((s,r)=>s+r.avt.tRac,0);
   const avgGlobal = results.reduce((s,r)=>s+r.avt.global,0)/results.length;
 
+  const totalConsomme = results.reduce((s,r)=>s+r.budget.totalConsomme,0);
+  const totalBudgetCible = results.reduce((s,r)=>s+r.budget.totalBudget,0);
+  const pctBudgetGlobal = totalBudgetCible>0 ? Math.min(100,totalConsomme/totalBudgetCible*100) : 0;
+  const coutParMetre = totalL>0 ? totalConsomme/totalL : 0;
+
   const kpis = [
     {label:'Réseau total posé', val: totalL.toFixed(1)+' m', icon:'fa-pipe', col:'var(--srm-blue)'},
     {label:'Branchements total', val: totalB+' u', icon:'fa-faucet', col:'var(--srm-green)'},
     {label:'Remise en état total', val: totalRem.toFixed(1)+' m', icon:'fa-road', col:'var(--srm-orange)'},
     {label:'Avancement moyen global', val: avgGlobal.toFixed(1)+'%', icon:'fa-gauge-high', col:'#7c3aed'},
+    {label:'Budget consommé', val: totalBudgetCible>0?mpFmtDH(totalConsomme):'—', icon:'fa-sack-dollar', col:'#d97706', sub: totalBudgetCible>0?(pctBudgetGlobal.toFixed(1)+'% de '+mpFmtDH(totalBudgetCible)):'Aucun budget renseigné'},
+    {label:'Coût moyen / mètre', val: totalL>0?mpFmtDH(coutParMetre):'—', icon:'fa-calculator', col:'#be185d'},
   ];
 
   document.getElementById('mp-kpi-grid').innerHTML = kpis.map(k => `
@@ -3421,7 +3512,7 @@ function mpRenderKPI(results){
       <i class="fa-solid ${k.icon} text-lg mb-1" style="color:${k.col}"></i>
       <p class="text-xl font-black" style="color:${k.col}">${k.val}</p>
       <p class="text-[10px] font-semibold text-gray-500 mt-0.5">${k.label}</p>
-      <p class="text-[9px] text-gray-400">${results.length} projet(s)</p>
+      <p class="text-[9px] text-gray-400">${k.sub?k.sub:results.length+' projet(s)'}</p>
     </div>`).join('');
 }
 
@@ -3444,7 +3535,55 @@ function mpRenderProgressBars(results){
   });
 }
 
-// ── CHARTS ──
+// ── BUDGET / FINANCE ──
+function mpRenderBudget(results){
+  const wrap = document.getElementById('mp-finance-card');
+  const container = document.getElementById('mp-budget-bars');
+  const totalConsomme = results.reduce((s,r)=>s+r.budget.totalConsomme,0);
+  const totalBudgetCible = results.reduce((s,r)=>s+r.budget.totalBudget,0);
+
+  if(totalBudgetCible<=0){
+    wrap.classList.remove('hidden');
+    container.innerHTML = '<p class="text-xs text-gray-400 italic">Aucun budget renseigné dans les fichiers importés (feuille "total à réaliser", cellules B7/B8, et feuille "Budget").</p>';
+    document.getElementById('mp-finance-total').innerHTML = '';
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  const pctGlobal = totalBudgetCible>0 ? Math.min(100,totalConsomme/totalBudgetCible*100) : 0;
+  const colGlobal = pctGlobal>=90?'#ef4444':pctGlobal>=70?'#d97706':'#16a34a';
+  document.getElementById('mp-finance-total').innerHTML = `
+    <div class="flex justify-between items-center mb-1">
+      <span class="text-xs font-bold text-gray-600">Budget Total Consommé — Tous Projets</span>
+      <span class="text-sm font-black" style="color:${colGlobal}">${pctGlobal.toFixed(1)}%</span>
+    </div>
+    <div class="progress-bar-bg" style="height:10px;"><div class="progress-bar-fill" style="width:${pctGlobal}%;background:linear-gradient(90deg,#d97706,#b45309);height:10px;"></div></div>
+    <p class="text-[10px] text-gray-400 mt-1.5 text-right">${mpFmtDH(totalConsomme)} / ${mpFmtDH(totalBudgetCible)}</p>`;
+
+  container.innerHTML = '<p class="text-[10px] font-bold uppercase tracking-wider mb-2" style="color:var(--srm-text)"><i class="fa-solid fa-coins mr-1" style="color:#d97706"></i>Budget consommé par projet</p>';
+  results.forEach(r => {
+    const f = r.budget;
+    if(f.totalBudget<=0){
+      container.innerHTML += `<div class="mb-2 flex justify-between items-center">
+        <span class="text-xs font-bold text-gray-700">${r.name}</span>
+        <span class="text-[10px] text-gray-400 italic">Aucun budget renseigné</span>
+      </div>`;
+      return;
+    }
+    const col = f.pctTotal>=90?'#ef4444':f.pctTotal>=70?'#d97706':'#16a34a';
+    container.innerHTML += `<div class="mb-2">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-xs font-bold text-gray-700">${r.name}</span>
+        <span class="text-xs font-black" style="color:${col}">${f.pctTotal.toFixed(1)}%</span>
+      </div>
+      <div class="progress-bar-bg" style="height:9px;">
+        <div class="progress-bar-fill" style="width:${f.pctTotal}%;background:${col};height:9px;"></div>
+      </div>
+      <p class="text-[9px] text-gray-400 mt-0.5 text-right">${mpFmtDH(f.totalConsomme)} / ${mpFmtDH(f.totalBudget)}</p>
+    </div>`;
+  });
+}
+
 function mpDestroyChart(id){
   if(mpCharts[id]){ try{mpCharts[id].destroy();}catch(e){} delete mpCharts[id]; }
 }
@@ -3621,6 +3760,59 @@ function mpRenderCharts(results){
       },
       scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}}},y:{ticks:{font:{size:9}}}}}
   });
+
+  // 7. Budget consommé vs cible
+  mpDestroyChart('budget');
+  const hasBudget = results.some(r=>r.budget && r.budget.totalBudget>0);
+  if(hasBudget){
+    mpCharts['budget'] = new Chart(document.getElementById('chart-budget'), {
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:'Consommé (DH)',data:results.map(r=>r.budget.totalConsomme.toFixed(2)),backgroundColor:colors,borderRadius:6},
+          {label:'Budget cible (DH)',data:results.map(r=>r.budget.totalBudget.toFixed(2)),backgroundColor:'rgba(217,119,6,0.15)',borderRadius:6,borderColor:'rgba(217,119,6,0.5)',borderWidth:1}
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom',labels:{font:{size:9}}},
+          datalabels:{
+            display:c=>c.dataset.data[c.dataIndex]>0,
+            color:c=>c.datasetIndex===1?'#b45309':'#fff',
+            font:{weight:'bold',size:8},
+            anchor:'end',align:c=>c.datasetIndex===1?'end':'center',
+            formatter:v=>Number(v).toLocaleString('fr-FR')+' DH'
+          }
+        },
+        scales:{y:{ticks:{font:{size:9},callback:v=>v.toLocaleString('fr-FR')}}}}
+    });
+  }
+
+  // 8. Répartition budget consommé par phase (Réseau / Branchements), tous projets
+  mpDestroyChart('budget-phase');
+  const consReseauTotal = results.reduce((s,r)=>s+(r.budget?r.budget.consReseau:0),0);
+  const consBranchTotal = results.reduce((s,r)=>s+(r.budget?r.budget.consBranch:0),0);
+  if(hasBudget){
+    mpCharts['budget-phase'] = new Chart(document.getElementById('chart-budget-phase'), {
+      type:'doughnut',
+      data:{labels:['Réseau','Branchements'],datasets:[{data:[consReseauTotal.toFixed(2),consBranchTotal.toFixed(2)],backgroundColor:['#2B7FC1','#4DB05B'],hoverOffset:6}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom',labels:{font:{size:9},boxWidth:10}},
+          datalabels:{
+            display:c=>c.dataset.data[c.dataIndex]>0,
+            color:'#fff',
+            font:{weight:'bold',size:9},
+            formatter:(v,ctx)=>{
+              const total=ctx.dataset.data.reduce((a,b)=>a+parseFloat(b),0);
+              const pct=total>0?(v/total*100):0;
+              return Number(v).toLocaleString('fr-FR')+' DH\n('+pct.toFixed(0)+'%)';
+            }
+          }
+        }}
+    });
+  }
 }
 
 // ── DETAIL TABLE ──
@@ -3637,6 +3829,9 @@ function mpRenderTable(results){
     const pR = pct(r.avt.tL, r.targets.linearReseau);
     const pB = pct(r.avt.tB, r.targets.branchements);
     const van = r.cumuls.vannes.v150+r.cumuls.vannes.v300;
+    const f = r.budget || {totalConsomme:0,totalBudget:0,pctTotal:0};
+    const pBudget = f.totalBudget>0 ? f.pctTotal.toFixed(0)+'%' : '—';
+    const coutM = r.avt.tL>0 ? mpFmtDH(f.totalConsomme/r.avt.tL) : '—';
     return `<tr style="${bg}">
       <td class="p-2 font-bold text-xs" style="color:var(--srm-text)">${r.name}</td>
       <td class="p-2 text-center font-mono-custom font-bold" style="color:var(--srm-blue)">${r.avt.tL.toFixed(2)}</td>
@@ -3650,6 +3845,10 @@ function mpRenderTable(results){
       <td class="p-2 text-center">${van}</td>
       <td class="p-2 text-center font-black" style="${colPct(g)}">${g}</td>
       <td class="p-2 text-center">${activeDays(r.records)}</td>
+      <td class="p-2 text-center font-mono-custom" style="color:#b45309">${f.totalConsomme>0?mpFmtDH(f.totalConsomme):'—'}</td>
+      <td class="p-2 text-center text-gray-500">${f.totalBudget>0?mpFmtDH(f.totalBudget):'—'}</td>
+      <td class="p-2 text-center font-bold" style="${pBudget!=='—'?colPct(pBudget):''}">${pBudget}</td>
+      <td class="p-2 text-center text-gray-600">${coutM}</td>
     </tr>`;
   }).join('');
 
@@ -3660,6 +3859,10 @@ function mpRenderTable(results){
   const totRac = results.reduce((s,r)=>s+r.avt.tRac,0);
   const totVan = results.reduce((s,r)=>s+r.cumuls.vannes.v150+r.cumuls.vannes.v300,0);
   const avgAvt = (results.reduce((s,r)=>s+r.avt.global,0)/results.length).toFixed(1)+'%';
+  const totConsomme = results.reduce((s,r)=>s+(r.budget?r.budget.totalConsomme:0),0);
+  const totBudgetCible = results.reduce((s,r)=>s+(r.budget?r.budget.totalBudget:0),0);
+  const pctBudgetTot = totBudgetCible>0?Math.min(100,totConsomme/totBudgetCible*100).toFixed(0)+'%':'—';
+  const coutMGlobal = totL>0 ? mpFmtDH(totConsomme/totL) : '—';
   tfoot.innerHTML = `<tr style="background:linear-gradient(90deg,#ede9fe,#f5f3ff);font-weight:900;">
     <td class="p-2 text-xs" style="color:#7c3aed">TOTAL / MOYENNE (${results.length} projets)</td>
     <td class="p-2 text-center" style="color:var(--srm-blue)">${totL.toFixed(2)}</td>
@@ -3673,6 +3876,10 @@ function mpRenderTable(results){
     <td class="p-2 text-center">${totVan}</td>
     <td class="p-2 text-center" style="color:#7c3aed">${avgAvt}</td>
     <td class="p-2 text-center">${results.reduce((s,r)=>s+new Set(r.records.map(rec=>rec.dateStr).filter(Boolean)).size,0)}</td>
+    <td class="p-2 text-center" style="color:#b45309">${totConsomme>0?mpFmtDH(totConsomme):'—'}</td>
+    <td class="p-2 text-center text-gray-400">${totBudgetCible>0?mpFmtDH(totBudgetCible):'—'}</td>
+    <td class="p-2 text-center" style="color:#b45309">${pctBudgetTot}</td>
+    <td class="p-2 text-center text-gray-500">${coutMGlobal}</td>
   </tr>`;
 }
 
@@ -3680,17 +3887,20 @@ function mpRenderTable(results){
 function mpExportPDF(){
   if(!mpProjects.length){ showToast('Aucun projet à exporter !','error'); return; }
   const results = mpProjects.map(p => ({...p, cumuls:mpGetCumuls(p.records), avt:null}));
-  results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); });
+  results.forEach(r => { r.avt = mpGetAvancement(r.cumuls, r.targets); r.budget = mpGetBudgetCumuls(r.budgetEntries, r.targets); });
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('fr-FR');
   const timeStr = now.toLocaleTimeString('fr-FR');
   const uname = currentUser ? (USERS[currentUser]?.displayName||currentUser) : '—';
 
+  const totalConsommeQR = results.reduce((s,r)=>s+r.budget.totalConsomme,0);
+  const totalBudgetQR = results.reduce((s,r)=>s+r.budget.totalBudget,0);
   const qrText = 'Consolidation Multi-Projets\nÉtabli par: '+uname+'\nExport: '+dateStr+' '+timeStr+
     '\nNombre de projets: '+results.length+
     '\nTotal réseau: '+results.reduce((s,r)=>s+r.avt.tL,0).toFixed(2)+' m'+
-    '\nTotal branchements: '+results.reduce((s,r)=>s+r.avt.tB,0)+' u';
+    '\nTotal branchements: '+results.reduce((s,r)=>s+r.avt.tB,0)+' u'+
+    (totalBudgetQR>0?('\nBudget consommé: '+totalConsommeQR.toFixed(2)+' / '+totalBudgetQR.toFixed(2)+' DH'):'');
 
   function fetchQR(text,cb){
     var enc=encodeURIComponent(text.substring(0,400));
@@ -3748,6 +3958,9 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   const totRem = results.reduce((s,r)=>s+r.avt.tRem,0);
   const totRac = results.reduce((s,r)=>s+r.avt.tRac,0);
   const avgAvt = results.reduce((s,r)=>s+r.avt.global,0)/results.length;
+  const totConsomme = results.reduce((s,r)=>s+r.budget.totalConsomme,0);
+  const totBudgetCible = results.reduce((s,r)=>s+r.budget.totalBudget,0);
+  const pctBudgetGlobal = totBudgetCible>0?Math.min(100,totConsomme/totBudgetCible*100):0;
 
   doc.autoTable({head:[['Réseau Total (m)','Branchements Total (u)','Remise Total (m)','Raccordements Total (u)','Avancement Moyen']],
     body:[[totL.toFixed(2),totB,totRem.toFixed(2),totRac,avgAvt.toFixed(1)+'%']],
@@ -3756,6 +3969,16 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
     bodyStyles:{fillColor:[245,243,255],textColor:PU},
     margin:{left:14,right:14},tableWidth:pW-28});
   Y = doc.lastAutoTable.finalY+4;
+
+  if(totBudgetCible>0){
+    doc.autoTable({head:[['Budget Consommé (DH)','Budget Cible (DH)','% Consommé Global']],
+      body:[[totConsomme.toFixed(2),totBudgetCible.toFixed(2),pctBudgetGlobal.toFixed(1)+'%']],
+      startY:Y,styles:{fontSize:8,cellPadding:3,halign:'center',fontStyle:'bold'},
+      headStyles:{fillColor:[217,119,6],textColor:[255,255,255],fontSize:7},
+      bodyStyles:{fillColor:[254,243,235],textColor:[180,83,9]},
+      margin:{left:14,right:14},tableWidth:pW-28});
+    Y = doc.lastAutoTable.finalY+4;
+  }
 
   // Per-project table
   doc.setFillColor(PU[0],PU[1],PU[2]); doc.roundedRect(14,Y,pW-28,6,1,1,'F');
@@ -3808,7 +4031,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
   results.forEach((r,pi) => {
     const col  = pi%2===0 ? 14 : 14+colW+10;
     const rowY = pi%2===0 ? Y : Y;
-    if(pi>0&&pi%2===0) Y+=60;
+    if(pi>0&&pi%2===0) Y+=72;
 
     doc.setFillColor(...GR); doc.roundedRect(col,Y,colW,6,1,1,'F');
     doc.setFontSize(7.5); doc.setFont(undefined,'bold'); doc.setTextColor(DK[0],DK[1],DK[2]);
@@ -3823,6 +4046,9 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
       {v:r.avt.tRem,t:r.targets.remiseEtat,n:'Remise',u:'m',c:O},
       {v:r.avt.tRac,t:r.targets.raccordements,n:'Raccords',u:'u',c:PU}
     ];
+    if(r.budget && r.budget.totalBudget>0){
+      phases.push({v:Math.round(r.budget.totalConsomme),t:Math.round(r.budget.totalBudget),n:'Budget',u:'DH',c:[217,119,6]});
+    }
     phases.forEach(ph => {
       const p = ph.t>0 ? Math.min(100,ph.v/ph.t*100) : 0;
       doc.setFontSize(6.5); doc.setFont(undefined,'bold'); doc.setTextColor(60,70,80);
@@ -3836,7 +4062,7 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
       if(filled>8){ doc.setFontSize(5.5); doc.setFont(undefined,'bold'); doc.setTextColor(pc[0],pc[1],pc[2]); doc.text(p.toFixed(0)+'%',col+filled/2,phY+7.5,{align:'center'}); }
       phY+=12;
     });
-    if(pi%2===1) Y+=60;
+    if(pi%2===1) Y+=72;
   });
 
   ftr(2);
@@ -3848,7 +4074,9 @@ function _mpDoPDF(qrDU, results, uname, dateStr, timeStr){
     {id:'chart-branch',     title:'BRANCHEMENTS RÉALISÉS (u) PAR PROJET'},
     {id:'chart-remise',     title:'REMISE EN ÉTAT (m) PAR PROJET'},
     {id:'chart-dn-donut',   title:'RÉPARTITION LINÉAIRE PAR DIAMÈTRE (TOUS PROJETS)'},
-    {id:'chart-timeline',   title:'PRODUCTION LINÉAIRE CUMULÉE DANS LE TEMPS'}
+    {id:'chart-timeline',   title:'PRODUCTION LINÉAIRE CUMULÉE DANS LE TEMPS'},
+    {id:'chart-budget',       title:'BUDGET CONSOMMÉ VS CIBLE PAR PROJET (DH)'},
+    {id:'chart-budget-phase', title:'RÉPARTITION DU BUDGET CONSOMMÉ (RÉSEAU / BRANCHEMENTS)'}
   ];
 
   doc.addPage(); hdr();
