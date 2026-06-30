@@ -666,6 +666,16 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
                 <input type="number" step="0.01" required class="field-budget-valeur srm-input font-mono-custom" placeholder="0.00">
               </div>
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold mb-1.5 text-gray-600">Observation</label>
+                <select onchange="handleObservationChange(this)" class="field-notes-select srm-input observation-dropdown"></select>
+              </div>
+              <div class="hidden custom-notes-box">
+                <label class="block text-xs font-bold mb-1.5" style="color:var(--srm-blue)">Préciser l'observation</label>
+                <input type="text" class="field-notes-custom srm-input" placeholder="Détailler ici...">
+              </div>
+            </div>
             <div class="flex justify-end gap-2 pt-1">
               <button type="button" onclick="cancelBudgetEdit(this)" class="btn-budget-cancel hidden px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 border hover:bg-gray-100" style="border-color:var(--srm-border)">Annuler</button>
               <button type="submit" class="btn-budget-submit srm-btn-primary" style="background:linear-gradient(135deg,#d97706,#b45309);"><i class="fa-solid fa-plus"></i> <span>Ajouter</span></button>
@@ -679,6 +689,7 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
                   <th class="p-2.5">Phase</th>
                   <th class="p-2.5">Date</th>
                   <th class="p-2.5">Valeur (DH)</th>
+                  <th class="p-2.5">Observation</th>
                   <th class="p-2.5 text-center">Actions</th>
                 </tr>
               </thead>
@@ -1864,7 +1875,7 @@ async function _doPDF(qrDataUrl){
 
   doc.setFillColor(...LB);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(...B);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
-  doc.text('REGISTRE JOURNALIER DES ACTIVITÉS — Analyse BUDGET',pW/2,25,{align:'center'});
+  doc.text('REGISTRE JOURNALIER DES ACTIVITÉS',pW/2,25,{align:'center'});
   doc.setTextColor(...DARK);
 
   const sortedR=[...records].sort((a,b)=>a.dateStr.localeCompare(b.dateStr));
@@ -1879,16 +1890,24 @@ async function _doPDF(qrDataUrl){
 
   // Append budget entries as rows
   const budgetSorted=[...budgetEntries].sort((a,b)=>a.date.localeCompare(b.date));
-  const budgetRows=budgetSorted.map(b=>[
-    new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')+' —',
-    b.saisiePar||'—',
-    'Budget / '+b.phase,
-    b.commande,
-    'Décompte budgétaire',
-    b.valeur.toFixed(2)+' DH',
-    '—',
-    ''
-  ]);
+  const seenBudgetPDF={};
+  const budgetRows=budgetSorted.map(b=>{
+    let totB='';
+    if(!seenBudgetPDF[b.date]){
+      totB=budgetEntries.filter(x=>x.date===b.date).reduce((s,x)=>s+x.valeur,0).toFixed(2)+' DH';
+      seenBudgetPDF[b.date]=true;
+    }
+    return[
+      new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')+' —',
+      b.saisiePar||'—',
+      'Budget / '+b.phase,
+      b.commande,
+      'Décompte budgétaire',
+      b.valeur.toFixed(2)+' DH',
+      b.notes||'RAS',
+      totB
+    ];
+  });
   const allRows=[...dRows,...budgetRows];
 
   let autoPageNum=2;
@@ -1989,12 +2008,15 @@ function handleBudgetFormSubmit(e){
   const phase=form.querySelector('input[name="budget-phase"]:checked')?.value||'';
   const date=form.querySelector('.field-budget-date').value;
   const valeur=parseFloat(form.querySelector('.field-budget-valeur').value)||0;
+  const sO=form.querySelector('.field-notes-select')?.value||'';const cO=form.querySelector('.field-notes-custom')?.value.trim()||'';
+  const notes=sO==='Autre'?(cO?'Autre: '+cO:'Autre'):(sO||'RAS');
   if(!commande||!phase||!date){showToast('Veuillez remplir tous les champs obligatoires.','error');return;}
-  const entry={id:idInput||('bud_'+Date.now()),commande,phase,date,valeur,saisiePar:currentUser?(USERS[currentUser]?.displayName||currentUser):'—'};
+  const entry={id:idInput||('bud_'+Date.now()),commande,phase,date,valeur,notes,saisiePar:currentUser?(USERS[currentUser]?.displayName||currentUser):'—'};
   if(idInput){const idx=budgetEntries.findIndex(b=>b.id===idInput);if(idx>-1)budgetEntries[idx]=entry;}
   else budgetEntries.push(entry);
   localStorage.setItem('water_project_budget',JSON.stringify(budgetEntries));
   form.reset();form.querySelector('.budget-record-id').value='';
+  const cb0=form.querySelector('.custom-notes-box');if(cb0)cb0.classList.add('hidden');
   form.querySelector('.btn-budget-cancel').classList.add('hidden');
   renderBudgetTable();renderProgressBars();
   showToast(idInput?'Décompte modifié avec succès.':'Décompte ajouté avec succès.');
@@ -2011,6 +2033,7 @@ function renderBudgetTable(){
       <td class="p-2.5"><span class="cat-badge" style="background:${b.phase==='Réseau'?'var(--srm-blue-light)':'var(--srm-green-light)'};color:${phaseColor}">${b.phase}</span></td>
       <td class="p-2.5 text-gray-500">${new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')}</td>
       <td class="p-2.5 font-mono-custom font-bold text-gray-800">${b.valeur.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})} DH</td>
+      <td class="p-2.5 text-gray-500">${b.notes||'RAS'}</td>
       <td class="p-2.5 text-center">
         <button onclick="editBudgetEntry('${b.id}')" class="p-1.5 rounded-lg text-xs hover:bg-blue-50 transition-colors" style="color:var(--srm-blue)" title="Modifier"><i class="fa-solid fa-pen"></i></button>
         <button onclick="deleteBudgetEntry('${b.id}')" class="p-1.5 rounded-lg text-xs hover:bg-red-50 text-red-500 transition-colors" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
@@ -2027,11 +2050,15 @@ function editBudgetEntry(id){
   form.querySelector(`input[name="budget-phase"][value="${b.phase}"]`).checked=true;
   form.querySelector('.field-budget-date').value=b.date;
   form.querySelector('.field-budget-valeur').value=b.valeur;
+  const sd=form.querySelector('.field-notes-select'),cb=form.querySelector('.custom-notes-box'),ci=form.querySelector('.field-notes-custom');
+  if(b.notes&&b.notes.startsWith('Autre: ')){if(sd)sd.value='Autre';if(cb)cb.classList.remove('hidden');if(ci)ci.value=b.notes.replace('Autre: ','');}
+  else{if(sd)sd.value=(b.notes==='RAS'?'':b.notes||'');if(cb)cb.classList.add('hidden');if(ci)ci.value='';}
   form.querySelector('.btn-budget-cancel').classList.remove('hidden');
   form.querySelector('.btn-budget-submit span').innerText='Mettre à jour';
 }
 function cancelBudgetEdit(btn){
   const form=btn.closest('form');form.reset();form.querySelector('.budget-record-id').value='';
+  const cb=form.querySelector('.custom-notes-box');if(cb)cb.classList.add('hidden');
   btn.classList.add('hidden');form.querySelector('.btn-budget-submit span').innerText='Ajouter';
 }
 function deleteBudgetEntry(id){
@@ -3150,7 +3177,7 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
   doc.addPage(); hdr();
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
-  doc.text('REGISTRE JOURNALIER — PÉRIODE : '+fmtDate(from)+' → '+fmtDate(to)+' — Analyse BUDGET',pW/2,24.8,{align:'center'});
+  doc.text('REGISTRE JOURNALIER — PÉRIODE : '+fmtDate(from)+' → '+fmtDate(to),pW/2,24.8,{align:'center'});
   doc.setTextColor(...DARK);
 
   const sortedF=[...filtered].sort((a,b)=>a.dateStr.localeCompare(b.dateStr));
@@ -3162,18 +3189,26 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       r.notes||'RAS',tot];
   });
 
-  // Append budget entries as rows (filtered by period)
+  // Append budget entries as rows (filtered by période)
   const budgetSortedF=[...budgetEntries].filter(b=>(!from||b.date>=from)&&(!to||b.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
-  const budgetRowsF=budgetSortedF.map(b=>[
-    new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')+' —',
-    b.saisiePar||'—',
-    'Budget / '+b.phase,
-    b.commande,
-    'Décompte budgétaire',
-    b.valeur.toFixed(2)+' DH',
-    '—',
-    ''
-  ]);
+  const seenBudgetPDFF={};
+  const budgetRowsF=budgetSortedF.map(b=>{
+    let totBF='';
+    if(!seenBudgetPDFF[b.date]){
+      totBF=budgetSortedF.filter(x=>x.date===b.date).reduce((s,x)=>s+x.valeur,0).toFixed(2)+' DH';
+      seenBudgetPDFF[b.date]=true;
+    }
+    return[
+      new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')+' —',
+      b.saisiePar||'—',
+      'Budget / '+b.phase,
+      b.commande,
+      'Décompte budgétaire',
+      b.valeur.toFixed(2)+' DH',
+      b.notes||'RAS',
+      totBF
+    ];
+  });
   const allRowsF=[...dRows,...budgetRowsF];
 
   doc.autoTable({
