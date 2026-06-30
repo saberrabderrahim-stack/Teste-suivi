@@ -279,6 +279,25 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
       <!-- AVANCEMENT FINANCIÈRE -->
       <div id="finance-section" class="pt-3 border-t space-y-3" style="border-color:var(--srm-border)">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-sack-dollar mr-1" style="color:#b45309"></i>Avancement Financière</p>
+
+        <!-- Stat cards: today + total -->
+        <div class="grid grid-cols-2 gap-3" id="finance-stat-cards">
+          <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#fef3c7;border:1px solid #fde68a">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#d97706;color:#fff"><i class="fa-solid fa-calendar-day text-sm"></i></div>
+            <div>
+              <p class="text-[10px] font-semibold text-gray-500">Consommation Aujourd'hui</p>
+              <p><span id="finance-today-val" class="text-2xl font-black" style="color:#92400e">0.00</span><span class="text-sm font-semibold ml-1" style="color:#d97706">DH</span></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#fff7ed;border:1px solid #fed7aa">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#b45309;color:#fff"><i class="fa-solid fa-chart-line text-sm"></i></div>
+            <div>
+              <p class="text-[10px] font-semibold text-gray-500">Total Consommé (Budget)</p>
+              <p><span id="finance-total-val" class="text-2xl font-black" style="color:#7c2d12">0.00</span><span class="text-sm font-semibold ml-1" style="color:#b45309">DH</span></p>
+            </div>
+          </div>
+        </div>
+
         <div id="finance-bars-container" class="space-y-2"></div>
       </div>
 
@@ -1718,6 +1737,36 @@ async function _doPDF(qrDataUrl){
         doc.text('AVANCEMENT FINANCIÈRE',16,Yd+4);
         doc.setTextColor(...DARK);Yd+=9;
 
+
+        // ── بطاقتا KPI مالية ──
+        {
+          const todayStr=new Date().toISOString().split('T')[0];
+          const finTodayVal=budgetEntries.filter(b=>b.date===todayStr).reduce((s,b)=>s+b.valeur,0);
+          const kpiFinW=(pW-28-6)/2, kpiFinH=14, kpiFinX=14, kpiFinY=Yd;
+          // Card 1 — Aujourd'hui
+          doc.setFillColor(255,251,235);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
+          doc.setDrawColor(253,211,77);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
+          doc.setFillColor(217,119,6);doc.roundedRect(kpiFinX+2,kpiFinY+2,9,9,1.5,1.5,'F');
+          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+          doc.text('\u2022',kpiFinX+4.5,kpiFinY+7.5,{align:'center'});
+          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
+          doc.text('Consommation Aujourd\'hui',kpiFinX+13,kpiFinY+6);
+          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(146,64,14);
+          doc.text(finTodayVal.toFixed(2)+' DH',kpiFinX+13,kpiFinY+12);
+          // Card 2 — Total
+          const kpiFinX2=kpiFinX+kpiFinW+6;
+          doc.setFillColor(255,247,237);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
+          doc.setDrawColor(253,186,116);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
+          doc.setFillColor(180,83,9);doc.roundedRect(kpiFinX2+2,kpiFinY+2,9,9,1.5,1.5,'F');
+          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+          doc.text('\u03a3',kpiFinX2+6.5,kpiFinY+7.5,{align:'center'});
+          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
+          doc.text('Total Consomm\'\u00e9 (Budget)',kpiFinX2+13,kpiFinY+6);
+          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(124,45,20);
+          doc.text(fin.totalConsomme.toFixed(2)+' DH',kpiFinX2+13,kpiFinY+12);
+          doc.setTextColor(...DARK);
+          Yd+=kpiFinH+5;
+        }
         const fbW=pW-28, fbH=4, fbX=14;
         const finItems=[
           {n:'Budget Réseau', d:fin.consReseau.toFixed(2)+' DH', t:fin.budR.toFixed(2)+' DH', p:fin.pctR, c:B, show:fin.budR>0},
@@ -1820,7 +1869,7 @@ async function _doPDF(qrDataUrl){
 
   doc.setFillColor(...LB);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(...B);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
-  doc.text('REGISTRE JOURNALIER DES ACTIVITÉS',pW/2,25,{align:'center'});
+  doc.text('REGISTRE JOURNALIER DES ACTIVITÉS — Analyse BUDGET',pW/2,25,{align:'center'});
   doc.setTextColor(...DARK);
 
   const sortedR=[...records].sort((a,b)=>a.dateStr.localeCompare(b.dateStr));
@@ -1833,18 +1882,36 @@ async function _doPDF(qrDataUrl){
       r.notes||'RAS',tot];
   });
 
+  // Append budget entries as rows
+  const budgetSorted=[...budgetEntries].sort((a,b)=>a.date.localeCompare(b.date));
+  const budgetRows=budgetSorted.map(b=>[
+    new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')+' —',
+    b.saisiePar||'—',
+    'Budget / '+b.phase,
+    b.commande,
+    'Décompte budgétaire',
+    b.valeur.toFixed(2)+' DH',
+    '—',
+    ''
+  ]);
+  const allRows=[...dRows,...budgetRows];
+
   let autoPageNum=2;
   doc.autoTable({
-    head:[['Date / Heure','Saisie par','Catégorie','Section','Détails','Qté/Dist.','Obs.','Total Journée']],
-    body:dRows,
+    head:[['Date / Heure','Saisie par','Catégorie','Commande / Section','Détails','Qté / Valeur','Obs.','Total Journée']],
+    body:allRows,
     startY:29,
     styles:{fontSize:5.5,cellPadding:1.2,overflow:'linebreak'},
     headStyles:{fillColor:B,textColor:[255,255,255],fontStyle:'bold',fontSize:6},
     alternateRowStyles:{fillColor:[247,251,255]},
-    columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:18},3:{cellWidth:22},4:{cellWidth:34},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:25}},
+    columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:20},3:{cellWidth:22},4:{cellWidth:32},5:{cellWidth:15},6:{cellWidth:15},7:{cellWidth:23}},
     margin:{left:14,right:14},
+    willDrawCell:function(data){
+      if(data.section==='body'&&data.row.raw&&data.row.raw[2]&&String(data.row.raw[2]).startsWith('Budget')){
+        doc.setFillColor(255,251,235);
+      }
+    },
     didDrawPage:function(data){
-      // Draw header on continuation pages only
       if(doc.getNumberOfPages()>2){
         hdr(doc.getNumberOfPages());
       }
@@ -2159,6 +2226,15 @@ function renderFinanceBars(timePct){
   const container=document.getElementById('finance-bars-container');
   if(!container)return;container.innerHTML='';
   const f=computeBudgetAnalysis();
+
+  // Update stat cards
+  const today=new Date().toISOString().split('T')[0];
+  const todayVal=budgetEntries.filter(b=>b.date===today).reduce((s,b)=>s+b.valeur,0);
+  const todayEl=document.getElementById('finance-today-val');
+  const totalEl=document.getElementById('finance-total-val');
+  if(todayEl) todayEl.innerText=todayVal.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(totalEl) totalEl.innerText=f.totalConsomme.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
   if(f.totalBudget<=0){
     container.innerHTML='<p class="text-xs text-gray-400 italic">Aucun budget renseigné (feuille "total à réaliser", cellules B7/B8).</p>';
     return;
@@ -2954,6 +3030,36 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
         doc.text('AVANCEMENT FINANCIÈRE',16,Yd+4);
         doc.setTextColor(...DARK);Yd+=9;
 
+
+        // ── بطاقتا KPI مالية ──
+        {
+          const todayStr=new Date().toISOString().split('T')[0];
+          const finTodayVal=budgetEntries.filter(b=>b.date===todayStr).reduce((s,b)=>s+b.valeur,0);
+          const kpiFinW=(pW-28-6)/2, kpiFinH=14, kpiFinX=14, kpiFinY=Yd;
+          // Card 1 — Aujourd'hui
+          doc.setFillColor(255,251,235);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
+          doc.setDrawColor(253,211,77);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
+          doc.setFillColor(217,119,6);doc.roundedRect(kpiFinX+2,kpiFinY+2,9,9,1.5,1.5,'F');
+          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+          doc.text('\u2022',kpiFinX+4.5,kpiFinY+7.5,{align:'center'});
+          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
+          doc.text('Consommation Aujourd\'hui',kpiFinX+13,kpiFinY+6);
+          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(146,64,14);
+          doc.text(finTodayVal.toFixed(2)+' DH',kpiFinX+13,kpiFinY+12);
+          // Card 2 — Total
+          const kpiFinX2=kpiFinX+kpiFinW+6;
+          doc.setFillColor(255,247,237);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
+          doc.setDrawColor(253,186,116);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
+          doc.setFillColor(180,83,9);doc.roundedRect(kpiFinX2+2,kpiFinY+2,9,9,1.5,1.5,'F');
+          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
+          doc.text('\u03a3',kpiFinX2+6.5,kpiFinY+7.5,{align:'center'});
+          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
+          doc.text('Total Consomm\'\u00e9 (Budget)',kpiFinX2+13,kpiFinY+6);
+          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(124,45,20);
+          doc.text(fin.totalConsomme.toFixed(2)+' DH',kpiFinX2+13,kpiFinY+12);
+          doc.setTextColor(...DARK);
+          Yd+=kpiFinH+5;
+        }
         const fbW=pW-28, fbH=4, fbX=14;
         const finItems=[
           {n:'Budget Réseau', d:fin.consReseau.toFixed(2)+' DH', t:fin.budR.toFixed(2)+' DH', p:fin.pctR, c:B, show:fin.budR>0},
@@ -3053,7 +3159,7 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
   doc.addPage(); hdr();
   doc.setFillColor(130,80,200);doc.roundedRect(14,20,pW-28,7,2,2,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont(undefined,'bold');
-  doc.text('REGISTRE JOURNALIER — PÉRIODE : '+fmtDate(from)+' → '+fmtDate(to),pW/2,24.8,{align:'center'});
+  doc.text('REGISTRE JOURNALIER — PÉRIODE : '+fmtDate(from)+' → '+fmtDate(to)+' — Analyse BUDGET',pW/2,24.8,{align:'center'});
   doc.setTextColor(...DARK);
 
   const sortedF=[...filtered].sort((a,b)=>a.dateStr.localeCompare(b.dateStr));
@@ -3065,14 +3171,33 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       r.notes||'RAS',tot];
   });
 
+  // Append budget entries as rows (filtered by period)
+  const budgetSortedF=[...budgetEntries].filter(b=>(!from||b.date>=from)&&(!to||b.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
+  const budgetRowsF=budgetSortedF.map(b=>[
+    new Date(b.date+'T00:00:00').toLocaleDateString('fr-FR')+' —',
+    b.saisiePar||'—',
+    'Budget / '+b.phase,
+    b.commande,
+    'Décompte budgétaire',
+    b.valeur.toFixed(2)+' DH',
+    '—',
+    ''
+  ]);
+  const allRowsF=[...dRows,...budgetRowsF];
+
   doc.autoTable({
-    head:[['Date / Heure','Saisie par','Catégorie','Section','Détails','Qté/Dist.','Obs.','Total Journée']],
-    body:dRows,startY:29,
+    head:[['Date / Heure','Saisie par','Catégorie','Commande / Section','Détails','Qté / Valeur','Obs.','Total Journée']],
+    body:allRowsF,startY:29,
     styles:{fontSize:5.5,cellPadding:1.2,overflow:'linebreak'},
     headStyles:{fillColor:[130,80,200],textColor:[255,255,255],fontStyle:'bold',fontSize:6},
     alternateRowStyles:{fillColor:[247,251,255]},
-    columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:18},3:{cellWidth:22},4:{cellWidth:34},5:{cellWidth:13},6:{cellWidth:17},7:{cellWidth:25}},
+    columnStyles:{0:{cellWidth:22},1:{cellWidth:13},2:{cellWidth:20},3:{cellWidth:22},4:{cellWidth:32},5:{cellWidth:15},6:{cellWidth:15},7:{cellWidth:23}},
     margin:{left:14,right:14},
+    willDrawCell:function(data){
+      if(data.section==='body'&&data.row.raw&&data.row.raw[2]&&String(data.row.raw[2]).startsWith('Budget')){
+        doc.setFillColor(255,251,235);
+      }
+    },
     didDrawPage:function(){if(doc.getNumberOfPages()>2){hdr();}ftr(doc.getNumberOfPages());}
   });
 
