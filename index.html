@@ -280,8 +280,8 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
       <div id="finance-section" class="pt-3 border-t space-y-3" style="border-color:var(--srm-border)">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-sack-dollar mr-1" style="color:#b45309"></i>Avancement Financière</p>
 
-        <!-- Stat cards: today + total -->
-        <div class="grid grid-cols-2 gap-3" id="finance-stat-cards">
+        <!-- Stat cards: today + total (empilées, même style que les cartes Production) -->
+        <div class="grid grid-cols-1 gap-3" id="finance-stat-cards">
           <div class="flex items-center gap-3 p-3 rounded-xl" style="background:#fef3c7;border:1px solid #fde68a">
             <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#d97706;color:#fff"><i class="fa-solid fa-calendar-day text-sm"></i></div>
             <div>
@@ -1594,27 +1594,52 @@ async function _doPDF(qrDataUrl){
 
     doc.setFillColor(124,58,237);doc.roundedRect(14,20,pW-28,7,2,2,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
-    doc.text('ANALYSE DU DÉLAI CONTRACTUEL',pW/2,25,{align:'center'});
+    doc.text('ANALYSE DU DÉLAI CONTRACTUEL & BUDGET',pW/2,25,{align:'center'});
     doc.setTextColor(...DARK);
 
     let Yd=29;
     const fmtDateFR = d => d.toLocaleDateString('fr-FR');
 
+    // ── Facteur d'échelle : adapte tout le contenu à l'espace entre le titre et les signatures ──
+    const _bHsC0=28, _sGap0=2, _bMargin0=8;
+    const _availH = (pH - _bMargin0 - _bHsC0 - _sGap0) - Yd;
+    const _finEst = computeBudgetAnalysis();
+    const _nPhasesShown = phases.filter(ph=>parseFloat(ph.t)!==0).length;
+    let _estH = 19;               // bandeau de statut (13+6)
+    _estH += 22;                  // cartes KPI (16+6)
+    _estH += 9;                   // entête "avancement par phase"
+    _estH += _nPhasesShown*15.5;  // par phase : barre réelle + barre théorique
+    _estH += 2;
+    _estH += 9 + 11.5 + 16;       // entête + barre réelle + barre théorique (réel vs théorique)
+    if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
+      _estH += 8.5 + (delaiInfo.cadences.length+1)*7.4 + 6;
+    } else if(delaiInfo.remainingDays<=0){
+      _estH += 16;
+    }
+    if(_finEst.totalBudget>0){
+      _estH += 9; // entête avancement financière
+      let _nFin=0; if(_finEst.budR>0)_nFin++; if(_finEst.budB>0)_nFin++;
+      _estH += _nFin*11.2;
+      _estH += 9.2 + 2 + 8 + 15; // budget total consommé + théorique + valeur théorique mensuelle
+    }
+    const SC = Math.max(0.6, Math.min(1, _availH/_estH));
+    const U = v => v*SC;
+
     // Status banner
     const scHex = delaiInfo.statusColor.replace('#','');
     const scRgb = [parseInt(scHex.substring(0,2),16), parseInt(scHex.substring(2,4),16), parseInt(scHex.substring(4,6),16)];
     doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);
-    doc.roundedRect(14,Yd,pW-28,13,2,2,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(9.5);doc.setFont(undefined,'bold');
-    doc.text(delaiInfo.statusBadge,18,Yd+5.5);
-    doc.setFontSize(6.5);doc.setFont(undefined,'normal');
+    doc.roundedRect(14,Yd,pW-28,U(13),2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(Math.max(6,9.5*SC));doc.setFont(undefined,'bold');
+    doc.text(delaiInfo.statusBadge,18,Yd+U(5.5));
+    doc.setFontSize(Math.max(4.5,6.5*SC));doc.setFont(undefined,'normal');
     const msgLines = doc.splitTextToSize(delaiInfo.statusMsg, pW-40);
-    doc.text(msgLines.slice(0,2), 18, Yd+9.5);
+    doc.text(msgLines.slice(0,2), 18, Yd+U(9.5));
     doc.setTextColor(...DARK);
-    Yd += 13 + 6;
+    Yd += U(13) + U(6);
 
     // KPI cards
-    const kpiW=(pW-28-3*3)/4, kpiH=16;
+    const kpiW=(pW-28-3*3)/4, kpiH=U(16);
     const kpis=[
       {val:delaiInfo.delaiMois+' mois', lbl:'Délai contractuel', col:B, bg:LB},
       {val:delaiInfo.elapsedDays+' / '+delaiInfo.totalDays, lbl:'Jours écoulés / total', col:G, bg:[234,247,236]},
@@ -1624,88 +1649,88 @@ async function _doPDF(qrDataUrl){
     kpis.forEach((k,i)=>{
       const x=14+i*(kpiW+3);
       doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,1.5,1.5,'F');
-      doc.setTextColor(...k.col);doc.setFontSize(9);doc.setFont(undefined,'bold');
-      doc.text(k.val,x+kpiW/2,Yd+6.5,{align:'center'});
-      doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
-      doc.text(k.lbl,x+kpiW/2,Yd+12,{align:'center'});
+      doc.setTextColor(...k.col);doc.setFontSize(Math.max(5,9*SC));doc.setFont(undefined,'bold');
+      doc.text(k.val,x+kpiW/2,Yd+U(6.5),{align:'center'});
+      doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
+      doc.text(k.lbl,x+kpiW/2,Yd+U(12),{align:'center'});
     });
     doc.setTextColor(...DARK);
-    Yd += kpiH + 6;
+    Yd += kpiH + U(6);
 
     // ── AVANCEMENT DU PROJET PAR PHASE (Réel + Théorique réel calculé) ──
-    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('AVANCEMENT DU PROJET PAR PHASE',16,Yd+4);
-    doc.setTextColor(...DARK);Yd+=9;
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT DU PROJET PAR PHASE',16,Yd+U(4));
+    doc.setTextColor(...DARK);Yd+=U(9);
 
-    const pbW=pW-28, pbH=4, pbX=14, pbThW=pbW-13-16;
+    const pbW=pW-28, pbH=U(4), pbX=14, pbThW=pbW-13-16;
     const phaseTheoArr=computePhaseTheoreticalPcts(delaiInfo.totalDays,delaiInfo.elapsedDays);
     phases.forEach((ph,phIdx)=>{
       if(parseFloat(ph.t)===0) return;
       // Réel — pourcentage centré au milieu de la barre
-      doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-      doc.text(ph.n,pbX,Yd+3);
+      doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+      doc.text(ph.n,pbX,Yd+U(3));
       doc.setFont(undefined,'normal');doc.setTextColor(100,120,140);
-      doc.text(ph.d+' / '+ph.t,pW-14,Yd+3,{align:'right'});
-      doc.setFillColor(220,228,238);doc.roundedRect(pbX,Yd+4.2,pbW,pbH,1,1,'F');
+      doc.text(ph.d+' / '+ph.t,pW-14,Yd+U(3),{align:'right'});
+      doc.setFillColor(220,228,238);doc.roundedRect(pbX,Yd+U(4.2),pbW,pbH,1,1,'F');
       const pf=Math.max(0,ph.p/100*pbW);
-      if(pf>0){doc.setFillColor(...ph.c);doc.roundedRect(pbX,Yd+4.2,pf,pbH,1,1,'F');}
+      if(pf>0){doc.setFillColor(...ph.c);doc.roundedRect(pbX,Yd+U(4.2),pf,pbH,1,1,'F');}
       const pC=ph.p>=75?[22,163,74]:ph.p>=50?[217,119,6]:[239,68,68];
       const pTxt=ph.p.toFixed(1)+'%';
-      doc.setFontSize(6);doc.setFont(undefined,'bold');
-      const pCx=pbX+pbW/2, pCy=Yd+4.2+pbH/2;
+      doc.setFontSize(Math.max(4.2,6*SC));doc.setFont(undefined,'bold');
+      const pCx=pbX+pbW/2, pCy=Yd+U(4.2)+pbH/2;
       doc.setTextColor(...pC);
-      doc.text(pTxt,pCx,pCy+1,{align:'center'});
-      Yd+=4.2+pbH+0.8;
+      doc.text(pTxt,pCx,pCy+U(1),{align:'center'});
+      Yd+=U(4.2)+pbH+U(0.8);
       // Théorique — propre à cette phase (poids de sa quantité cible dans le délai global)
       const phTheo=phaseTheoArr[phIdx]||0;
-      doc.setFontSize(5.5);doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
-      doc.text('Théorique',pbX,Yd+2.6);
-      doc.setFillColor(230,233,238);doc.roundedRect(pbX+13,Yd,pbThW,3,1,1,'F');
+      doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
+      doc.text('Théorique',pbX,Yd+U(2.6));
+      doc.setFillColor(230,233,238);doc.roundedRect(pbX+13,Yd,pbThW,U(3),1,1,'F');
       const tf=Math.max(0,phTheo/100*pbThW);
-      if(tf>0){doc.setFillColor(156,163,175);doc.roundedRect(pbX+13,Yd,tf,3,1,1,'F');}
+      if(tf>0){doc.setFillColor(156,163,175);doc.roundedRect(pbX+13,Yd,tf,U(3),1,1,'F');}
       const tTxt=phTheo.toFixed(1)+'%';
-      doc.setFontSize(4.8);doc.setFont(undefined,'bold');
-      const tCx=pbX+13+pbThW/2, tCy=Yd+1.5;
+      doc.setFontSize(Math.max(3.6,4.8*SC));doc.setFont(undefined,'bold');
+      const tCx=pbX+13+pbThW/2, tCy=Yd+U(1.5);
       doc.setTextColor(120,130,140);
-      doc.text(tTxt,tCx,tCy+0.9,{align:'center'});
+      doc.text(tTxt,tCx,tCy+U(0.9),{align:'center'});
       doc.setTextColor(...DARK);
-      Yd+=6.5;
+      Yd+=U(6.5);
     });
-    Yd+=2;
+    Yd+=U(2);
 
     // Avancement réel vs théorique bars
-    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('AVANCEMENT RÉEL vs THÉORIQUE',16,Yd+4);
-    doc.setTextColor(...DARK);Yd+=9;
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT RÉEL vs THÉORIQUE',16,Yd+U(4));
+    doc.setTextColor(...DARK);Yd+=U(9);
 
-    const dbW=pW-28, dbH=4, dbX=14;
+    const dbW=pW-28, dbH=U(4), dbX=14;
     // Réel
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement réel (travaux)',dbX,Yd+3);
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement réel (travaux)',dbX,Yd+U(3));
     doc.setFont(undefined,'normal');doc.setTextColor(...scRgb);
-    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+4.2,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+U(3),{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+U(4.2),dbW,dbH,1,1,'F');
     let f1=Math.max(0,delaiInfo.globalPct/100*dbW);
-    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+4.2,f1,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=11.5;
+    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+U(4.2),f1,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=U(11.5);
     // Théorique
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+3);
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+U(3));
     doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
-    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+4.2,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+U(3),{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+U(4.2),dbW,dbH,1,1,'F');
     let f2=Math.max(0,delaiInfo.timePct/100*dbW);
-    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+4.2,f2,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=16;
+    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+U(4.2),f2,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=U(16);
 
     // Cadences table
     if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DELAI',16,Yd+4);
-      doc.setTextColor(...DARK);Yd+=8.5;
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');
+      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DELAI',16,Yd+U(4));
+      doc.setTextColor(...DARK);Yd+=U(8.5);
 
       const cadBody = delaiInfo.cadences.map(cd=>[
         cd.name, cd.restant.toFixed(2)+' '+cd.unit, cd.cadenceJour.toFixed(2)+' '+cd.unit+'/jour'
@@ -1713,18 +1738,18 @@ async function _doPDF(qrDataUrl){
       doc.autoTable({
         head:[['Phase','Quantité restante','Cadence/jour requise']],
         body:cadBody, startY:Yd,
-        styles:{fontSize:7.5,cellPadding:2.2,halign:'center'},
-        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold',fontSize:7.5},
+        styles:{fontSize:Math.max(5,7.5*SC),cellPadding:U(2.2),halign:'center'},
+        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold',fontSize:Math.max(5,7.5*SC)},
         alternateRowStyles:{fillColor:[247,251,255]},
         columnStyles:{0:{halign:'left',fontStyle:'bold'},2:{fontStyle:'bold',textColor:[124,58,237]}},
         margin:{left:14,right:14},tableWidth:pW-28
       });
-      Yd = doc.lastAutoTable.finalY + 6;
+      Yd = doc.lastAutoTable.finalY + U(6);
     } else if(delaiInfo.remainingDays<=0){
-      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,9,2,2,'F');
-      doc.setTextColor(220,38,38);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
-      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+5.8,{align:'center'});
-      doc.setTextColor(...DARK);Yd+=16;
+      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,U(9),2,2,'F');
+      doc.setTextColor(220,38,38);doc.setFontSize(Math.max(5,7.5*SC));doc.setFont(undefined,'bold');
+      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+U(5.8),{align:'center'});
+      doc.setTextColor(...DARK);Yd+=U(16);
     }
 
 
@@ -1732,95 +1757,65 @@ async function _doPDF(qrDataUrl){
     {
       const fin=computeBudgetAnalysis();
       if(fin.totalBudget>0){
-        doc.setFillColor(217,119,6);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-        doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-        doc.text('AVANCEMENT FINANCIÈRE',16,Yd+4);
-        doc.setTextColor(...DARK);Yd+=9;
+        doc.setFillColor(217,119,6);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');
+        doc.text('AVANCEMENT FINANCIÈRE',16,Yd+U(4));
+        doc.setTextColor(...DARK);Yd+=U(9);
 
-
-        // ── بطاقتا KPI مالية ──
-        {
-          const todayStr=new Date().toISOString().split('T')[0];
-          const finTodayVal=budgetEntries.filter(b=>b.date===todayStr).reduce((s,b)=>s+b.valeur,0);
-          const kpiFinW=(pW-28-6)/2, kpiFinH=14, kpiFinX=14, kpiFinY=Yd;
-          // Card 1 — Aujourd'hui
-          doc.setFillColor(255,251,235);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
-          doc.setDrawColor(253,211,77);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
-          doc.setFillColor(217,119,6);doc.roundedRect(kpiFinX+2,kpiFinY+2,9,9,1.5,1.5,'F');
-          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
-          doc.text('\u2022',kpiFinX+4.5,kpiFinY+7.5,{align:'center'});
-          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
-          doc.text('Consommation Aujourd\'hui',kpiFinX+13,kpiFinY+6);
-          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(146,64,14);
-          doc.text(finTodayVal.toFixed(2)+' DH',kpiFinX+13,kpiFinY+12);
-          // Card 2 — Total
-          const kpiFinX2=kpiFinX+kpiFinW+6;
-          doc.setFillColor(255,247,237);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
-          doc.setDrawColor(253,186,116);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
-          doc.setFillColor(180,83,9);doc.roundedRect(kpiFinX2+2,kpiFinY+2,9,9,1.5,1.5,'F');
-          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
-          doc.text('\u03a3',kpiFinX2+6.5,kpiFinY+7.5,{align:'center'});
-          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
-          doc.text('Total Consomm\'\u00e9 (Budget)',kpiFinX2+13,kpiFinY+6);
-          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(124,45,20);
-          doc.text(fin.totalConsomme.toFixed(2)+' DH',kpiFinX2+13,kpiFinY+12);
-          doc.setTextColor(...DARK);
-          Yd+=kpiFinH+5;
-        }
-        const fbW=pW-28, fbH=4, fbX=14;
+        const fbW=pW-28, fbH=U(4), fbX=14;
         const finItems=[
           {n:'Budget Réseau', d:fin.consReseau.toFixed(2)+' DH', t:fin.budR.toFixed(2)+' DH', p:fin.pctR, c:B, show:fin.budR>0},
           {n:'Budget Branchements', d:fin.consBranch.toFixed(2)+' DH', t:fin.budB.toFixed(2)+' DH', p:fin.pctB, c:G, show:fin.budB>0}
         ];
         finItems.forEach(it=>{
           if(!it.show)return;
-          doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-          doc.text(it.n,fbX,Yd+3);
+          doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+          doc.text(it.n,fbX,Yd+U(3));
           doc.setFont(undefined,'normal');doc.setTextColor(100,120,140);
-          doc.text(it.d+' / '+it.t,pW-14,Yd+3,{align:'right'});
-          doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+          doc.text(it.d+' / '+it.t,pW-14,Yd+U(3),{align:'right'});
+          doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+U(4.2),fbW,fbH,1,1,'F');
           const pf=Math.max(0,it.p/100*fbW);
-          if(pf>0){doc.setFillColor(...it.c);doc.roundedRect(fbX,Yd+4.2,pf,fbH,1,1,'F');}
-          doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...it.c);
-          doc.text(it.p.toFixed(1)+'%',fbX+fbW/2,Yd+4.2+fbH/2+1,{align:'center'});
+          if(pf>0){doc.setFillColor(...it.c);doc.roundedRect(fbX,Yd+U(4.2),pf,fbH,1,1,'F');}
+          doc.setFontSize(Math.max(4.2,6*SC));doc.setFont(undefined,'bold');doc.setTextColor(...it.c);
+          doc.text(it.p.toFixed(1)+'%',fbX+fbW/2,Yd+U(4.2)+fbH/2+U(1),{align:'center'});
           doc.setTextColor(...DARK);
-          Yd+=4.2+fbH+3;
+          Yd+=U(4.2)+fbH+U(3);
         });
 
-        doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-        doc.text('Budget Total Consommé',fbX,Yd+3);
+        doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+        doc.text('Budget Total Consommé',fbX,Yd+U(3));
         doc.setFont(undefined,'normal');doc.setTextColor(180,83,9);
-        doc.text(fin.pctTotal.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
-        doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+        doc.text(fin.pctTotal.toFixed(1)+'%',pW-14,Yd+U(3),{align:'right'});
+        doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+U(4.2),fbW,fbH,1,1,'F');
         let ft=Math.max(0,fin.pctTotal/100*fbW);
-        if(ft>0){doc.setFillColor(217,119,6);doc.roundedRect(fbX,Yd+4.2,ft,fbH,1,1,'F');}
-        doc.setTextColor(...DARK);Yd+=4.2+fbH+1;
-        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
-        doc.text(fin.totalConsomme.toFixed(2)+' DH / '+fin.totalBudget.toFixed(2)+' DH',pW-14,Yd+2,{align:'right'});
-        doc.setTextColor(...DARK);Yd+=2;
+        if(ft>0){doc.setFillColor(217,119,6);doc.roundedRect(fbX,Yd+U(4.2),ft,fbH,1,1,'F');}
+        doc.setTextColor(...DARK);Yd+=U(4.2)+fbH+U(1);
+        doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
+        doc.text(fin.totalConsomme.toFixed(2)+' DH / '+fin.totalBudget.toFixed(2)+' DH',pW-14,Yd+U(2),{align:'right'});
+        doc.setTextColor(...DARK);Yd+=U(2);
 
-        doc.setFontSize(5.5);doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
-        doc.text('Théorique (temps écoulé)',fbX,Yd+4.6);
-        doc.setFillColor(230,233,238);doc.roundedRect(fbX+38,Yd+2.4,fbW-38,3,1,1,'F');
+        doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
+        doc.text('Théorique (temps écoulé)',fbX,Yd+U(4.6));
+        doc.setFillColor(230,233,238);doc.roundedRect(fbX+38,Yd+U(2.4),fbW-38,U(3),1,1,'F');
         const tf2=Math.max(0,delaiInfo.timePct/100*(fbW-38));
-        if(tf2>0){doc.setFillColor(156,163,175);doc.roundedRect(fbX+38,Yd+2.4,tf2,3,1,1,'F');}
-        doc.setFontSize(4.8);doc.setFont(undefined,'bold');doc.setTextColor(120,130,140);
-        doc.text(delaiInfo.timePct.toFixed(1)+'%',fbX+38+(fbW-38)/2,Yd+4.3,{align:'center'});
-        doc.setTextColor(...DARK);Yd+=8;
+        if(tf2>0){doc.setFillColor(156,163,175);doc.roundedRect(fbX+38,Yd+U(2.4),tf2,U(3),1,1,'F');}
+        doc.setFontSize(Math.max(3.6,4.8*SC));doc.setFont(undefined,'bold');doc.setTextColor(120,130,140);
+        doc.text(delaiInfo.timePct.toFixed(1)+'%',fbX+38+(fbW-38)/2,Yd+U(4.3),{align:'center'});
+        doc.setTextColor(...DARK);Yd+=U(8);
 
         const moisRestants=Math.max(1,delaiInfo.remainingDays/30.4375);
         const restantBudget=Math.max(0,fin.totalBudget-fin.totalConsomme);
         const valTheoMensuelle=restantBudget/moisRestants;
-        doc.setFillColor(255,251,235);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'F');
-        doc.setDrawColor(252,211,77);doc.setLineWidth(0.25);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'D');
-        doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(180,83,9);
-        doc.text('Valeur théorique à consommer par mois (mois restants : '+moisRestants.toFixed(1)+') :',17,Yd+4);
-        doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(120,53,15);
-        doc.text(valTheoMensuelle.toFixed(2)+' DH / mois',pW-17,Yd+4,{align:'right'});
-        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(146,64,14);
-        doc.text('Budget restant : '+restantBudget.toFixed(2)+' DH',17,Yd+7.5);
+        doc.setFillColor(255,251,235);doc.roundedRect(14,Yd,pW-28,U(9),1.5,1.5,'F');
+        doc.setDrawColor(252,211,77);doc.setLineWidth(0.25);doc.roundedRect(14,Yd,pW-28,U(9),1.5,1.5,'D');
+        doc.setFontSize(Math.max(4.2,6*SC));doc.setFont(undefined,'bold');doc.setTextColor(180,83,9);
+        doc.text('Valeur théorique à consommer par mois (mois restants : '+moisRestants.toFixed(1)+') :',17,Yd+U(4));
+        doc.setFontSize(Math.max(5,7*SC));doc.setFont(undefined,'bold');doc.setTextColor(120,53,15);
+        doc.text(valTheoMensuelle.toFixed(2)+' DH / mois',pW-17,Yd+U(4),{align:'right'});
+        doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'normal');doc.setTextColor(146,64,14);
+        doc.text('Budget restant : '+restantBudget.toFixed(2)+' DH',17,Yd+U(7.5));
         doc.setTextColor(...DARK);
-        Yd+=9+6;
+        Yd+=U(9)+U(6);
       }
     }
 
@@ -2888,27 +2883,52 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
 
     doc.setFillColor(124,58,237);doc.roundedRect(14,20,pW-28,7,2,2,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(8.5);doc.setFont(undefined,'bold');
-    doc.text('ANALYSE DU DÉLAI CONTRACTUEL (AVANCEMENT GLOBAL)',pW/2,25,{align:'center'});
+    doc.text('ANALYSE DU DÉLAI CONTRACTUEL & BUDGET (AVANCEMENT GLOBAL)',pW/2,25,{align:'center'});
     doc.setTextColor(...DARK);
 
     let Yd=29;
     const fmtDateFR = d => d.toLocaleDateString('fr-FR');
 
+    // ── Facteur d'échelle : adapte tout le contenu à l'espace entre le titre et les signatures ──
+    const _bHsC0=28, _sGap0=2, _bMargin0=8;
+    const _availH = (pH - _bMargin0 - _bHsC0 - _sGap0) - Yd;
+    const _finEst = computeBudgetAnalysis();
+    const _nPhasesShown = phases.filter(ph=>parseFloat(ph.t)!==0).length;
+    let _estH = 19;               // bandeau de statut (13+6)
+    _estH += 22;                  // cartes KPI (16+6)
+    _estH += 9;                   // entête "avancement par phase"
+    _estH += _nPhasesShown*15.5;  // par phase : barre réelle + barre théorique
+    _estH += 2;
+    _estH += 9 + 11.5 + 16;       // entête + barre réelle + barre théorique (réel vs théorique)
+    if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
+      _estH += 8.5 + (delaiInfo.cadences.length+1)*7.4 + 6;
+    } else if(delaiInfo.remainingDays<=0){
+      _estH += 16;
+    }
+    if(_finEst.totalBudget>0){
+      _estH += 9; // entête avancement financière
+      let _nFin=0; if(_finEst.budR>0)_nFin++; if(_finEst.budB>0)_nFin++;
+      _estH += _nFin*11.2;
+      _estH += 9.2 + 2 + 8 + 15; // budget total consommé + théorique + valeur théorique mensuelle
+    }
+    const SC = Math.max(0.6, Math.min(1, _availH/_estH));
+    const U = v => v*SC;
+
     // Status banner
     const scHex = delaiInfo.statusColor.replace('#','');
     const scRgb = [parseInt(scHex.substring(0,2),16), parseInt(scHex.substring(2,4),16), parseInt(scHex.substring(4,6),16)];
     doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);
-    doc.roundedRect(14,Yd,pW-28,13,2,2,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(9.5);doc.setFont(undefined,'bold');
-    doc.text(delaiInfo.statusBadge,18,Yd+5.5);
-    doc.setFontSize(6.5);doc.setFont(undefined,'normal');
+    doc.roundedRect(14,Yd,pW-28,U(13),2,2,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(Math.max(6,9.5*SC));doc.setFont(undefined,'bold');
+    doc.text(delaiInfo.statusBadge,18,Yd+U(5.5));
+    doc.setFontSize(Math.max(4.5,6.5*SC));doc.setFont(undefined,'normal');
     const msgLines = doc.splitTextToSize(delaiInfo.statusMsg, pW-40);
-    doc.text(msgLines.slice(0,2), 18, Yd+9.5);
+    doc.text(msgLines.slice(0,2), 18, Yd+U(9.5));
     doc.setTextColor(...DARK);
-    Yd += 13 + 6;
+    Yd += U(13) + U(6);
 
     // KPI cards
-    const kpiW=(pW-28-3*3)/4, kpiH=16;
+    const kpiW=(pW-28-3*3)/4, kpiH=U(16);
     const kpis=[
       {val:delaiInfo.delaiMois+' mois', lbl:'Délai contractuel', col:B, bg:LB},
       {val:delaiInfo.elapsedDays+' / '+delaiInfo.totalDays, lbl:'Jours écoulés / total', col:G, bg:[234,247,236]},
@@ -2918,87 +2938,88 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
     kpis.forEach((k,i)=>{
       const x=14+i*(kpiW+3);
       doc.setFillColor(...k.bg);doc.roundedRect(x,Yd,kpiW,kpiH,1.5,1.5,'F');
-      doc.setTextColor(...k.col);doc.setFontSize(9);doc.setFont(undefined,'bold');
-      doc.text(k.val,x+kpiW/2,Yd+6.5,{align:'center'});
-      doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
-      doc.text(k.lbl,x+kpiW/2,Yd+12,{align:'center'});
+      doc.setTextColor(...k.col);doc.setFontSize(Math.max(5,9*SC));doc.setFont(undefined,'bold');
+      doc.text(k.val,x+kpiW/2,Yd+U(6.5),{align:'center'});
+      doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'normal');doc.setTextColor(100,110,120);
+      doc.text(k.lbl,x+kpiW/2,Yd+U(12),{align:'center'});
     });
     doc.setTextColor(...DARK);
-    Yd += kpiH + 6;
+    Yd += kpiH + U(6);
 
     // ── AVANCEMENT DU PROJET PAR PHASE (Réel + Théorique réel calculé) ──
-    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('AVANCEMENT DU PROJET PAR PHASE',16,Yd+4);
-    doc.setTextColor(...DARK);Yd+=9;
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT DU PROJET PAR PHASE',16,Yd+U(4));
+    doc.setTextColor(...DARK);Yd+=U(9);
 
-    const pbW=pW-28, pbH=4, pbX=14, pbThW=pbW-13-16;
+    const pbW=pW-28, pbH=U(4), pbX=14, pbThW=pbW-13-16;
     const phaseTheoArr=computePhaseTheoreticalPcts(delaiInfo.totalDays,delaiInfo.elapsedDays);
     phases.forEach((ph,phIdx)=>{
       if(parseFloat(ph.t)===0) return;
       // Réel — pourcentage centré au milieu de la barre
-      doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-      doc.text(ph.n,pbX,Yd+3);
+      doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+      doc.text(ph.n,pbX,Yd+U(3));
       doc.setFont(undefined,'normal');doc.setTextColor(100,120,140);
-      doc.text(ph.d+' / '+ph.t,pW-14,Yd+3,{align:'right'});
-      doc.setFillColor(220,228,238);doc.roundedRect(pbX,Yd+4.2,pbW,pbH,1,1,'F');
+      doc.text(ph.d+' / '+ph.t,pW-14,Yd+U(3),{align:'right'});
+      doc.setFillColor(220,228,238);doc.roundedRect(pbX,Yd+U(4.2),pbW,pbH,1,1,'F');
       const pf=Math.max(0,ph.p/100*pbW);
-      if(pf>0){doc.setFillColor(...ph.c);doc.roundedRect(pbX,Yd+4.2,pf,pbH,1,1,'F');}
+      if(pf>0){doc.setFillColor(...ph.c);doc.roundedRect(pbX,Yd+U(4.2),pf,pbH,1,1,'F');}
       const pC=ph.p>=75?[22,163,74]:ph.p>=50?[217,119,6]:[239,68,68];
       const pTxt=ph.p.toFixed(1)+'%';
-      doc.setFontSize(6);doc.setFont(undefined,'bold');
-      const pCx=pbX+pbW/2, pCy=Yd+4.2+pbH/2;
+      doc.setFontSize(Math.max(4.2,6*SC));doc.setFont(undefined,'bold');
+      const pCx=pbX+pbW/2, pCy=Yd+U(4.2)+pbH/2;
       doc.setTextColor(...pC);
-      doc.text(pTxt,pCx,pCy+1,{align:'center'});
-      Yd+=4.2+pbH+0.8;
+      doc.text(pTxt,pCx,pCy+U(1),{align:'center'});
+      Yd+=U(4.2)+pbH+U(0.8);
       // Théorique — propre à cette phase (poids de sa quantité cible dans le délai global)
       const phTheo=phaseTheoArr[phIdx]||0;
-      doc.setFontSize(5.5);doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
-      doc.text('Théorique',pbX,Yd+2.6);
-      doc.setFillColor(230,233,238);doc.roundedRect(pbX+13,Yd,pbThW,3,1,1,'F');
+      doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
+      doc.text('Théorique',pbX,Yd+U(2.6));
+      doc.setFillColor(230,233,238);doc.roundedRect(pbX+13,Yd,pbThW,U(3),1,1,'F');
       const tf=Math.max(0,phTheo/100*pbThW);
-      if(tf>0){doc.setFillColor(156,163,175);doc.roundedRect(pbX+13,Yd,tf,3,1,1,'F');}
+      if(tf>0){doc.setFillColor(156,163,175);doc.roundedRect(pbX+13,Yd,tf,U(3),1,1,'F');}
       const tTxt=phTheo.toFixed(1)+'%';
-      doc.setFontSize(4.8);doc.setFont(undefined,'bold');
-      const tCx=pbX+13+pbThW/2, tCy=Yd+1.5;
+      doc.setFontSize(Math.max(3.6,4.8*SC));doc.setFont(undefined,'bold');
+      const tCx=pbX+13+pbThW/2, tCy=Yd+U(1.5);
       doc.setTextColor(120,130,140);
-      doc.text(tTxt,tCx,tCy+0.9,{align:'center'});
+      doc.text(tTxt,tCx,tCy+U(0.9),{align:'center'});
       doc.setTextColor(...DARK);
-      Yd+=6.5;
+      Yd+=U(6.5);
     });
-    Yd+=2;
+    Yd+=U(2);
 
     // Avancement réel vs théorique bars
-    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(...B);
-    doc.text('AVANCEMENT RÉEL vs THÉORIQUE (CUMUL GLOBAL DU PROJET)',16,Yd+4);
-    doc.setTextColor(...DARK);Yd+=9;
+    doc.setFillColor(...GR);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(...B);
+    doc.text('AVANCEMENT RÉEL vs THÉORIQUE (CUMUL GLOBAL DU PROJET)',16,Yd+U(4));
+    doc.setTextColor(...DARK);Yd+=U(9);
 
-    const dbW=pW-28, dbH=4, dbX=14;
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement réel (travaux)',dbX,Yd+3);
+    const dbW=pW-28, dbH=U(4), dbX=14;
+    // Réel
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement réel (travaux)',dbX,Yd+U(3));
     doc.setFont(undefined,'normal');doc.setTextColor(...scRgb);
-    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+4.2,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.globalPct.toFixed(1)+'%',pW-14,Yd+U(3),{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+U(4.2),dbW,dbH,1,1,'F');
     let f1=Math.max(0,delaiInfo.globalPct/100*dbW);
-    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+4.2,f1,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=11.5;
-
-    doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+3);
+    if(f1>0){doc.setFillColor(scRgb[0],scRgb[1],scRgb[2]);doc.roundedRect(dbX,Yd+U(4.2),f1,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=U(11.5);
+    // Théorique
+    doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+    doc.text('Avancement théorique (temps écoulé)',dbX,Yd+U(3));
     doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
-    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
-    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+4.2,dbW,dbH,1,1,'F');
+    doc.text(delaiInfo.timePct.toFixed(1)+'%',pW-14,Yd+U(3),{align:'right'});
+    doc.setFillColor(220,228,238);doc.roundedRect(dbX,Yd+U(4.2),dbW,dbH,1,1,'F');
     let f2=Math.max(0,delaiInfo.timePct/100*dbW);
-    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+4.2,f2,dbH,1,1,'F');}
-    doc.setTextColor(...DARK);Yd+=16;
+    if(f2>0){doc.setFillColor(156,163,175);doc.roundedRect(dbX,Yd+U(4.2),f2,dbH,1,1,'F');}
+    doc.setTextColor(...DARK);Yd+=U(16);
 
     // Cadences table
     if(delaiInfo.remainingDays>0 && delaiInfo.cadences.length){
-      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-      doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DELAI',16,Yd+4);
-      doc.setTextColor(...DARK);Yd+=8.5;
+      doc.setFillColor(124,58,237);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+      doc.setTextColor(255,255,255);doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');
+      doc.text('CADENCE QUOTIDIENNE REQUISE POUR RESPECTER LE DELAI',16,Yd+U(4));
+      doc.setTextColor(...DARK);Yd+=U(8.5);
 
       const cadBody = delaiInfo.cadences.map(cd=>[
         cd.name, cd.restant.toFixed(2)+' '+cd.unit, cd.cadenceJour.toFixed(2)+' '+cd.unit+'/jour'
@@ -3006,18 +3027,18 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
       doc.autoTable({
         head:[['Phase','Quantité restante','Cadence/jour requise']],
         body:cadBody, startY:Yd,
-        styles:{fontSize:7.5,cellPadding:2.2,halign:'center'},
-        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold',fontSize:7.5},
+        styles:{fontSize:Math.max(5,7.5*SC),cellPadding:U(2.2),halign:'center'},
+        headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontStyle:'bold',fontSize:Math.max(5,7.5*SC)},
         alternateRowStyles:{fillColor:[247,251,255]},
         columnStyles:{0:{halign:'left',fontStyle:'bold'},2:{fontStyle:'bold',textColor:[124,58,237]}},
         margin:{left:14,right:14},tableWidth:pW-28
       });
-      Yd = doc.lastAutoTable.finalY + 6;
+      Yd = doc.lastAutoTable.finalY + U(6);
     } else if(delaiInfo.remainingDays<=0){
-      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,9,2,2,'F');
-      doc.setTextColor(220,38,38);doc.setFontSize(7.5);doc.setFont(undefined,'bold');
-      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+5.8,{align:'center'});
-      doc.setTextColor(...DARK);Yd+=16;
+      doc.setFillColor(254,242,242);doc.roundedRect(14,Yd,pW-28,U(9),2,2,'F');
+      doc.setTextColor(220,38,38);doc.setFontSize(Math.max(5,7.5*SC));doc.setFont(undefined,'bold');
+      doc.text('Aucune cadence calculable : le délai contractuel est déjà dépassé.',pW/2,Yd+U(5.8),{align:'center'});
+      doc.setTextColor(...DARK);Yd+=U(16);
     }
 
 
@@ -3025,95 +3046,65 @@ async function _doStatsPDF(qrDataUrl, c, filtered, proj, uname, from, to, dateSt
     {
       const fin=computeBudgetAnalysis();
       if(fin.totalBudget>0){
-        doc.setFillColor(217,119,6);doc.roundedRect(14,Yd,pW-28,6,1,1,'F');
-        doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont(undefined,'bold');
-        doc.text('AVANCEMENT FINANCIÈRE',16,Yd+4);
-        doc.setTextColor(...DARK);Yd+=9;
+        doc.setFillColor(217,119,6);doc.roundedRect(14,Yd,pW-28,U(6),1,1,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');
+        doc.text('AVANCEMENT FINANCIÈRE',16,Yd+U(4));
+        doc.setTextColor(...DARK);Yd+=U(9);
 
-
-        // ── بطاقتا KPI مالية ──
-        {
-          const todayStr=new Date().toISOString().split('T')[0];
-          const finTodayVal=budgetEntries.filter(b=>b.date===todayStr).reduce((s,b)=>s+b.valeur,0);
-          const kpiFinW=(pW-28-6)/2, kpiFinH=14, kpiFinX=14, kpiFinY=Yd;
-          // Card 1 — Aujourd'hui
-          doc.setFillColor(255,251,235);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
-          doc.setDrawColor(253,211,77);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
-          doc.setFillColor(217,119,6);doc.roundedRect(kpiFinX+2,kpiFinY+2,9,9,1.5,1.5,'F');
-          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
-          doc.text('\u2022',kpiFinX+4.5,kpiFinY+7.5,{align:'center'});
-          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
-          doc.text('Consommation Aujourd\'hui',kpiFinX+13,kpiFinY+6);
-          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(146,64,14);
-          doc.text(finTodayVal.toFixed(2)+' DH',kpiFinX+13,kpiFinY+12);
-          // Card 2 — Total
-          const kpiFinX2=kpiFinX+kpiFinW+6;
-          doc.setFillColor(255,247,237);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'F');
-          doc.setDrawColor(253,186,116);doc.setLineWidth(0.2);doc.roundedRect(kpiFinX2,kpiFinY,kpiFinW,kpiFinH,2,2,'D');
-          doc.setFillColor(180,83,9);doc.roundedRect(kpiFinX2+2,kpiFinY+2,9,9,1.5,1.5,'F');
-          doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont(undefined,'bold');
-          doc.text('\u03a3',kpiFinX2+6.5,kpiFinY+7.5,{align:'center'});
-          doc.setTextColor(120,53,15);doc.setFontSize(5.5);doc.setFont(undefined,'normal');
-          doc.text('Total Consomm\'\u00e9 (Budget)',kpiFinX2+13,kpiFinY+6);
-          doc.setFontSize(9);doc.setFont(undefined,'bold');doc.setTextColor(124,45,20);
-          doc.text(fin.totalConsomme.toFixed(2)+' DH',kpiFinX2+13,kpiFinY+12);
-          doc.setTextColor(...DARK);
-          Yd+=kpiFinH+5;
-        }
-        const fbW=pW-28, fbH=4, fbX=14;
+        const fbW=pW-28, fbH=U(4), fbX=14;
         const finItems=[
           {n:'Budget Réseau', d:fin.consReseau.toFixed(2)+' DH', t:fin.budR.toFixed(2)+' DH', p:fin.pctR, c:B, show:fin.budR>0},
           {n:'Budget Branchements', d:fin.consBranch.toFixed(2)+' DH', t:fin.budB.toFixed(2)+' DH', p:fin.pctB, c:G, show:fin.budB>0}
         ];
         finItems.forEach(it=>{
           if(!it.show)return;
-          doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-          doc.text(it.n,fbX,Yd+3);
+          doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+          doc.text(it.n,fbX,Yd+U(3));
           doc.setFont(undefined,'normal');doc.setTextColor(100,120,140);
-          doc.text(it.d+' / '+it.t,pW-14,Yd+3,{align:'right'});
-          doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+          doc.text(it.d+' / '+it.t,pW-14,Yd+U(3),{align:'right'});
+          doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+U(4.2),fbW,fbH,1,1,'F');
           const pf=Math.max(0,it.p/100*fbW);
-          if(pf>0){doc.setFillColor(...it.c);doc.roundedRect(fbX,Yd+4.2,pf,fbH,1,1,'F');}
-          doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(...it.c);
-          doc.text(it.p.toFixed(1)+'%',fbX+fbW/2,Yd+4.2+fbH/2+1,{align:'center'});
+          if(pf>0){doc.setFillColor(...it.c);doc.roundedRect(fbX,Yd+U(4.2),pf,fbH,1,1,'F');}
+          doc.setFontSize(Math.max(4.2,6*SC));doc.setFont(undefined,'bold');doc.setTextColor(...it.c);
+          doc.text(it.p.toFixed(1)+'%',fbX+fbW/2,Yd+U(4.2)+fbH/2+U(1),{align:'center'});
           doc.setTextColor(...DARK);
-          Yd+=4.2+fbH+3;
+          Yd+=U(4.2)+fbH+U(3);
         });
 
-        doc.setFontSize(6.5);doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
-        doc.text('Budget Total Consommé',fbX,Yd+3);
+        doc.setFontSize(Math.max(5,6.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(60,70,80);
+        doc.text('Budget Total Consommé',fbX,Yd+U(3));
         doc.setFont(undefined,'normal');doc.setTextColor(180,83,9);
-        doc.text(fin.pctTotal.toFixed(1)+'%',pW-14,Yd+3,{align:'right'});
-        doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+4.2,fbW,fbH,1,1,'F');
+        doc.text(fin.pctTotal.toFixed(1)+'%',pW-14,Yd+U(3),{align:'right'});
+        doc.setFillColor(220,228,238);doc.roundedRect(fbX,Yd+U(4.2),fbW,fbH,1,1,'F');
         let ft=Math.max(0,fin.pctTotal/100*fbW);
-        if(ft>0){doc.setFillColor(217,119,6);doc.roundedRect(fbX,Yd+4.2,ft,fbH,1,1,'F');}
-        doc.setTextColor(...DARK);Yd+=4.2+fbH+1;
-        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
-        doc.text(fin.totalConsomme.toFixed(2)+' DH / '+fin.totalBudget.toFixed(2)+' DH',pW-14,Yd+2,{align:'right'});
-        doc.setTextColor(...DARK);Yd+=2;
+        if(ft>0){doc.setFillColor(217,119,6);doc.roundedRect(fbX,Yd+U(4.2),ft,fbH,1,1,'F');}
+        doc.setTextColor(...DARK);Yd+=U(4.2)+fbH+U(1);
+        doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'normal');doc.setTextColor(140,150,160);
+        doc.text(fin.totalConsomme.toFixed(2)+' DH / '+fin.totalBudget.toFixed(2)+' DH',pW-14,Yd+U(2),{align:'right'});
+        doc.setTextColor(...DARK);Yd+=U(2);
 
-        doc.setFontSize(5.5);doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
-        doc.text('Théorique (temps écoulé)',fbX,Yd+4.6);
-        doc.setFillColor(230,233,238);doc.roundedRect(fbX+38,Yd+2.4,fbW-38,3,1,1,'F');
+        doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'bold');doc.setTextColor(140,150,160);
+        doc.text('Théorique (temps écoulé)',fbX,Yd+U(4.6));
+        doc.setFillColor(230,233,238);doc.roundedRect(fbX+38,Yd+U(2.4),fbW-38,U(3),1,1,'F');
         const tf2=Math.max(0,delaiInfo.timePct/100*(fbW-38));
-        if(tf2>0){doc.setFillColor(156,163,175);doc.roundedRect(fbX+38,Yd+2.4,tf2,3,1,1,'F');}
-        doc.setFontSize(4.8);doc.setFont(undefined,'bold');doc.setTextColor(120,130,140);
-        doc.text(delaiInfo.timePct.toFixed(1)+'%',fbX+38+(fbW-38)/2,Yd+4.3,{align:'center'});
-        doc.setTextColor(...DARK);Yd+=8;
+        if(tf2>0){doc.setFillColor(156,163,175);doc.roundedRect(fbX+38,Yd+U(2.4),tf2,U(3),1,1,'F');}
+        doc.setFontSize(Math.max(3.6,4.8*SC));doc.setFont(undefined,'bold');doc.setTextColor(120,130,140);
+        doc.text(delaiInfo.timePct.toFixed(1)+'%',fbX+38+(fbW-38)/2,Yd+U(4.3),{align:'center'});
+        doc.setTextColor(...DARK);Yd+=U(8);
 
         const moisRestants=Math.max(1,delaiInfo.remainingDays/30.4375);
         const restantBudget=Math.max(0,fin.totalBudget-fin.totalConsomme);
         const valTheoMensuelle=restantBudget/moisRestants;
-        doc.setFillColor(255,251,235);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'F');
-        doc.setDrawColor(252,211,77);doc.setLineWidth(0.25);doc.roundedRect(14,Yd,pW-28,9,1.5,1.5,'D');
-        doc.setFontSize(6);doc.setFont(undefined,'bold');doc.setTextColor(180,83,9);
-        doc.text('Valeur théorique à consommer par mois (mois restants : '+moisRestants.toFixed(1)+') :',17,Yd+4);
-        doc.setFontSize(7);doc.setFont(undefined,'bold');doc.setTextColor(120,53,15);
-        doc.text(valTheoMensuelle.toFixed(2)+' DH / mois',pW-17,Yd+4,{align:'right'});
-        doc.setFontSize(5.5);doc.setFont(undefined,'normal');doc.setTextColor(146,64,14);
-        doc.text('Budget restant : '+restantBudget.toFixed(2)+' DH',17,Yd+7.5);
+        doc.setFillColor(255,251,235);doc.roundedRect(14,Yd,pW-28,U(9),1.5,1.5,'F');
+        doc.setDrawColor(252,211,77);doc.setLineWidth(0.25);doc.roundedRect(14,Yd,pW-28,U(9),1.5,1.5,'D');
+        doc.setFontSize(Math.max(4.2,6*SC));doc.setFont(undefined,'bold');doc.setTextColor(180,83,9);
+        doc.text('Valeur théorique à consommer par mois (mois restants : '+moisRestants.toFixed(1)+') :',17,Yd+U(4));
+        doc.setFontSize(Math.max(5,7*SC));doc.setFont(undefined,'bold');doc.setTextColor(120,53,15);
+        doc.text(valTheoMensuelle.toFixed(2)+' DH / mois',pW-17,Yd+U(4),{align:'right'});
+        doc.setFontSize(Math.max(4,5.5*SC));doc.setFont(undefined,'normal');doc.setTextColor(146,64,14);
+        doc.text('Budget restant : '+restantBudget.toFixed(2)+' DH',17,Yd+U(7.5));
         doc.setTextColor(...DARK);
-        Yd+=9+6;
+        Yd+=U(9)+U(6);
       }
     }
 
