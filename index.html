@@ -306,6 +306,23 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-hourglass-half mr-1" style="color:#7c3aed"></i>Analyse du Délai Contractuel</p>
         <div id="delai-content"></div>
       </div>
+
+      <!-- DASHBOARD EXÉCUTIF (KPIs DE PILOTAGE) -->
+      <div id="executive-section" class="pt-3 border-t space-y-3" style="border-color:var(--srm-border)">
+        <p class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--srm-text)"><i class="fa-solid fa-gauge-high mr-1" style="color:#dc2626"></i>Dashboard Exécutif — Indicateurs de Pilotage</p>
+
+        <!-- Alertes -->
+        <div id="exec-alerts" class="space-y-1.5"></div>
+
+        <!-- Cartes KPI -->
+        <div id="exec-kpi-cards" class="grid grid-cols-2 gap-2"></div>
+
+        <!-- Courbe en S -->
+        <div class="pt-1">
+          <p class="text-[10px] font-bold text-gray-500 mb-2"><i class="fa-solid fa-chart-area mr-1" style="color:var(--srm-blue)"></i>Courbe en S — Réseau : Réel cumulé vs Théorique</p>
+          <div id="exec-scurve-wrap" style="position:relative;height:190px;"><canvas id="exec-scurve-chart"></canvas></div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══ ACCORDION SECTIONS ═══ -->
@@ -2182,7 +2199,7 @@ function calculateStatistics(){
   let dn={'75':0,'90':0,'110':0,'160':0,'225':0,'315':0},br32=0,br50=0,day=0,mon=0,vn15=0,vn30=0,rc20=0,rc30=0;
   const td=new Date().toISOString().split('T')[0],cm=td.substring(0,7);
   records.forEach(r=>{
-    if(r.category==='Réseau'){if(r.dn&&dn[r.dn]!==undefined)dn[r.dn]+=(r.distance||0);vn15+=(r.v150_qty||0);vn30+=(r.v300_qty||0);if(r.distance&&r.dateStr===td)day+=r.distance;if(r.distance&&r.dateStr&&r.dateStr.startsWith(cm))mon+=r.distance;}
+    if(r.category==='Réseau'){if(r.dn&&dn[r.dn]!==undefined)dn[r.dn]+=(r.distance||0);vn15+=(r.v150_qty||0);vn30+=(r.v300_qty||0);if(r.distance&&r.dateStr===td)day+=r.distance;if(r.distance)mon+=r.distance;}
     if(r.category==='Branchements'){br32+=(r.br_dn32_qty||0);br50+=(r.br_dn50_qty||0);}
     if(r.category==='Mise en service'&&r.ms_data){rc20+=(r.ms_data.r200||0);rc30+=(r.ms_data.r300||0);}
   });
@@ -2288,6 +2305,7 @@ function renderProgressBars(){
 
   renderDelaiAnalysis(c, globalPct);
   renderFinanceBars(timePct);
+  renderExecutiveDashboard(c, globalPct);
 }
 
 // ════════════════════════════ AVANCEMENT FINANCIÈRE ════════════════════════════
@@ -2509,6 +2527,205 @@ function renderDelaiAnalysis(c, globalPct){
 
   content.innerHTML = html;
 }
+
+// ════════════════════════════ DASHBOARD EXÉCUTIF (KPIs DE PILOTAGE) ════════════════════════════
+// ════ Calculs purs, réutilisables (HTML + éventuel export futur) ════
+function computeExecutiveKPIs(c, globalPct){
+  const totalLinear = Object.values(c.reseau).reduce((a,b)=>a+b,0);
+  const totalRemise = Object.values(c.remise).reduce((a,b)=>a+b,0);
+  const fin = computeBudgetAnalysis();
+  const delaiInfo = computeDelaiAnalysis(c, globalPct);
+
+  // 1) Coût réel au mètre linéaire de Réseau (DH/m)
+  const coutMetre = totalLinear>0 ? (fin.consReseau/totalLinear) : null;
+
+  // 2) Écart Coût vs Avancement physique (Earned Value simplifié) :
+  //    négatif = budget consommé (%) dépasse l'avancement physique réel (%) -> risque de dérive financière
+  const ecartCout = fin.totalBudget>0 ? (globalPct - fin.pctTotal) : null;
+
+  // 3) Taux de reprise (Remise en état réalisée / Réseau réalisé)
+  const tauxReprise = totalLinear>0 ? (totalRemise/totalLinear*100) : null;
+
+  // 4) Jours d'arrêt de production Réseau depuis le début du chantier
+  const reseauDates = [...new Set(records.filter(r=>r.category==='Réseau' && r.distance>0).map(r=>r.dateStr))];
+  let joursArret=null, joursEcoulesArret=null;
+  const startVal = document.getElementById('project-start-date').value;
+  const refStartStr = startVal || (reseauDates.length ? reseauDates.sort()[0] : null);
+  if(refStartStr){
+    const start=new Date(refStartStr+'T00:00:00'), today=new Date(); today.setHours(0,0,0,0);
+    joursEcoulesArret = Math.max(1, Math.floor((today-start)/86400000)+1);
+    joursArret = Math.max(0, joursEcoulesArret - reseauDates.length);
+  }
+
+  // 5) Date de fin prévisionnelle du Réseau, basée sur la cadence réelle des 30 derniers jours
+  let dateFinPrevue=null, cadenceReelle=null, achieved=false;
+  const target = projectTargets.linearReseau||0;
+  if(target>0){
+    if(totalLinear>=target){ achieved=true; }
+    else{
+      const today=new Date(); today.setHours(0,0,0,0);
+      const cutoff=new Date(today); cutoff.setDate(cutoff.getDate()-30);
+      const recentSum = records.filter(r=>r.category==='Réseau' && r.distance>0 && r.dateStr && new Date(r.dateStr+'T00:00:00')>=cutoff)
+                                .reduce((s,r)=>s+r.distance,0);
+      cadenceReelle = recentSum/30;
+      if(cadenceReelle>0){
+        const daysNeeded = Math.ceil((target-totalLinear)/cadenceReelle);
+        dateFinPrevue = new Date(today); dateFinPrevue.setDate(dateFinPrevue.getDate()+daysNeeded);
+      }
+    }
+  }
+
+  // Alertes automatiques
+  let alerts=[];
+  if(delaiInfo){
+    if(delaiInfo.remainingDays<=0 && delaiInfo.globalPct<100){
+      alerts.push({level:'danger', icon:'fa-circle-exclamation', msg:"Délai contractuel dépassé alors que le projet n'est pas achevé."});
+    } else if(delaiInfo.ecart < -10){
+      alerts.push({level:'danger', icon:'fa-triangle-exclamation', msg:'Retard important sur planning : '+delaiInfo.ecart.toFixed(1)+' points sous la courbe théorique.'});
+    } else if(delaiInfo.ecart < -2){
+      alerts.push({level:'warning', icon:'fa-triangle-exclamation', msg:'Léger retard sur planning ('+delaiInfo.ecart.toFixed(1)+' pts). À surveiller.'});
+    }
+    if(dateFinPrevue instanceof Date && dateFinPrevue > delaiInfo.deadline){
+      alerts.push({level:'danger', icon:'fa-calendar-xmark', msg:"À la cadence actuelle, la fin prévisionnelle du Réseau dépasse l'échéance contractuelle."});
+    }
+  }
+  if(ecartCout!==null){
+    if(ecartCout < -10) alerts.push({level:'danger', icon:'fa-sack-dollar', msg:'Budget consommé nettement supérieur à l\'avancement physique réel (risque de dérive financière).'});
+    else if(ecartCout < -2) alerts.push({level:'warning', icon:'fa-sack-dollar', msg:'Vigilance budgétaire : consommation légèrement supérieure à l\'avancement.'});
+  }
+  if(joursArret!==null && joursEcoulesArret>0 && (joursArret/joursEcoulesArret) > 0.4){
+    alerts.push({level:'warning', icon:'fa-hourglass-half', msg:'Part élevée de jours sans production Réseau ('+joursArret+' j sur '+joursEcoulesArret+' j écoulés).'});
+  }
+  if(!alerts.length) alerts.push({level:'ok', icon:'fa-circle-check', msg:'Aucune alerte critique détectée — pilotage globalement conforme.'});
+
+  return {coutMetre, ecartCout, tauxReprise, joursArret, joursEcoulesArret, reseauDatesCount:reseauDates.length,
+          dateFinPrevue, cadenceReelle, achieved, delaiInfo, alerts, fin, totalLinear, target};
+}
+
+function renderExecutiveDashboard(c, globalPct){
+  const alertsBox = document.getElementById('exec-alerts');
+  const cardsBox = document.getElementById('exec-kpi-cards');
+  if(!alertsBox || !cardsBox) return;
+  const k = computeExecutiveKPIs(c, globalPct);
+
+  // Alertes
+  const alertStyles = {
+    danger:  {bg:'#fef2f2', border:'#fecaca', color:'#dc2626'},
+    warning: {bg:'#fffbeb', border:'#fde68a', color:'#d97706'},
+    ok:      {bg:'#f0fdf4', border:'#bbf7d0', color:'#16a34a'}
+  };
+  alertsBox.innerHTML = k.alerts.map(a=>{
+    const s = alertStyles[a.level];
+    return `<div class="p-2.5 rounded-xl flex items-center gap-2 text-xs font-semibold" style="background:${s.bg};border:1px solid ${s.border};color:${s.color}">
+      <i class="fa-solid ${a.icon}"></i><span>${a.msg}</span>
+    </div>`;
+  }).join('');
+
+  // Cartes KPI
+  const fmtDate = d => d.toLocaleDateString('fr-FR');
+  const cards = [];
+  cards.push({
+    icon:'fa-ruler-combined', color:'#2B7FC1', bg:'#e8f4fd',
+    label:'Coût réel au mètre (Réseau)',
+    value: k.coutMetre!==null ? k.coutMetre.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—',
+    unit: k.coutMetre!==null ? 'DH/m' : ''
+  });
+  cards.push({
+    icon:'fa-scale-balanced', color: k.ecartCout===null?'#6b7c93':(k.ecartCout<-10?'#dc2626':k.ecartCout<-2?'#d97706':'#16a34a'),
+    bg: k.ecartCout===null?'#f4f6f9':(k.ecartCout<-10?'#fef2f2':k.ecartCout<-2?'#fffbeb':'#f0fdf4'),
+    label:'Écart Coût / Avancement',
+    value: k.ecartCout!==null ? (k.ecartCout>0?'+':'')+k.ecartCout.toFixed(1) : '—',
+    unit: k.ecartCout!==null ? 'pts' : ''
+  });
+  cards.push({
+    icon:'fa-arrows-rotate', color:'#c4662a', bg:'#fef3eb',
+    label:'Taux de reprise (Remise/Réseau)',
+    value: k.tauxReprise!==null ? k.tauxReprise.toFixed(1) : '—',
+    unit: k.tauxReprise!==null ? '%' : ''
+  });
+  cards.push({
+    icon:'fa-calendar-xmark', color: k.joursArret===null?'#6b7c93':(k.joursArret>0?'#d97706':'#16a34a'), bg:'#fef3c7',
+    label:"Jours sans production Réseau",
+    value: k.joursArret!==null ? k.joursArret : '—',
+    unit: k.joursArret!==null ? ('/ '+k.joursEcoulesArret+' j') : ''
+  });
+  cards.push({
+    icon:'fa-gauge', color:'#7c3aed', bg:'#f3eefe',
+    label:'Cadence réelle (30 derniers j.)',
+    value: k.cadenceReelle!==null ? k.cadenceReelle.toFixed(2) : (k.achieved?'—':'—'),
+    unit: k.cadenceReelle!==null ? 'm/j' : ''
+  });
+  let dateFinTxt='—', dateFinColor='#6b7c93';
+  if(k.achieved){ dateFinTxt='ACHEVÉ'; dateFinColor='#16a34a'; }
+  else if(k.dateFinPrevue instanceof Date){
+    dateFinTxt=fmtDate(k.dateFinPrevue);
+    dateFinColor = (k.delaiInfo && k.dateFinPrevue>k.delaiInfo.deadline) ? '#dc2626' : '#16a34a';
+  }
+  cards.push({
+    icon:'fa-flag-checkered', color:dateFinColor, bg:'#eaf7ec',
+    label:'Fin prévisionnelle Réseau (cadence réelle)',
+    value: dateFinTxt, unit:''
+  });
+
+  cardsBox.innerHTML = cards.map(cd=>`
+    <div class="p-2.5 rounded-xl" style="background:${cd.bg};border:1px solid ${cd.color}33">
+      <div class="flex items-center gap-1.5 mb-1"><i class="fa-solid ${cd.icon} text-xs" style="color:${cd.color}"></i>
+        <span class="text-[9px] font-bold text-gray-500 leading-tight">${cd.label}</span>
+      </div>
+      <p><span class="text-base font-black" style="color:${cd.color}">${cd.value}</span>
+      <span class="text-[10px] font-semibold ml-1" style="color:${cd.color}">${cd.unit}</span></p>
+    </div>`).join('');
+
+  renderExecutiveScurve();
+}
+
+// ════ Courbe en S : cumul réel journalier du Réseau vs cumul théorique (planning contractuel) ════
+function renderExecutiveScurve(){
+  const canvas = document.getElementById('exec-scurve-chart');
+  const wrap = document.getElementById('exec-scurve-wrap');
+  if(!canvas || !wrap) return;
+  mpDestroyChart('exec-scurve');
+
+  const {dates, series} = getDailyCumulativeSeries(records);
+  if(!dates.length){
+    wrap.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-8">Aucune donnée de production Réseau enregistrée pour le moment.</p>';
+    return;
+  }
+  if(!document.getElementById('exec-scurve-chart')){
+    wrap.innerHTML = '<canvas id="exec-scurve-chart"></canvas>';
+  }
+  const realData = series.map(s=>s.reseau);
+  let theoData = null;
+  const startVal = document.getElementById('project-start-date').value;
+  const target = projectTargets.linearReseau||0;
+  if(startVal && projectTargets.delaiMois>0 && target>0){
+    const start = new Date(startVal+'T00:00:00');
+    const totalDays = Math.round(projectTargets.delaiMois*30.4375);
+    const dailyRate = target/totalDays;
+    theoData = dates.map(d=>{
+      const dt = new Date(d+'T00:00:00');
+      const elapsed = Math.max(0, Math.floor((dt-start)/86400000));
+      return +Math.min(target, elapsed*dailyRate).toFixed(2);
+    });
+  }
+  const datasets = [{
+    label:'Réel cumulé (m)', data:realData, borderColor:'#2B7FC1', backgroundColor:'rgba(43,127,193,0.10)',
+    fill:true, tension:0.25, pointRadius:1.5, borderWidth:2
+  }];
+  if(theoData){
+    datasets.push({ label:'Théorique (m)', data:theoData, borderColor:'#9ca3af', borderDash:[5,4], pointRadius:0, borderWidth:2, fill:false });
+  }
+  mpCharts['exec-scurve'] = new Chart(document.getElementById('exec-scurve-chart'), {
+    type:'line',
+    data:{ labels:dates.map(d=>new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})), datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom', labels:{font:{size:9}, boxWidth:12}}, datalabels:{display:false} },
+      scales:{ x:{ticks:{font:{size:8},maxRotation:60,minRotation:60}}, y:{ticks:{font:{size:9}}, title:{display:true,text:'m',font:{size:9}}} }
+    }
+  });
+}
+
 function getAggregatedCumuls(){
   let res={'75':0,'90':0,'110':0,'160':0,'225':0,'315':0},branch={DN32:0,DN50:0},remise={'Chaussée':0,'Pavé':0,'Carrelage O':0,'Carrelage S':0,'Béton':0,'Asphalte N':0},service={j32:0,c1_32:0,c2_32:0,c3_32:0,j50:0,c1_50:0,c2_50:0,c3_50:0},vannes={v150:0,v300:0},racc={r200:0,r300:0};
   records.forEach(r=>{
