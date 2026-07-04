@@ -4536,11 +4536,7 @@ function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, 
      detail:'Connexion des troncons realises au reseau existant pour assurer la continuite hydraulique du reseau AEP.',
      p:pRc,info:tRc+' u / '+(T.raccordements||0)+' u',
      reco:recTxt(pRc,tRc,T.raccordements||0,'u',cadTxt(Math.max(0,(T.raccordements||0)-tRc),'u'))},
-    {n:6,title:'DESINFECTION ET RINCAGE DE LA CONDUITE',
-     detail:'Desinfection au chlore de la conduite neuve puis rincage, verification de la qualite de l\'eau avant mise en service.',
-     p:pSv,info:tSv>0?'Engagee - '+tSv+' u':'En attente des raccordements',
-     reco:tSv>0?'Confirmer la conformite bacteriologique avant toute mise en service.':'Prevoir les moyens (chlore, equipements) des la fin des raccordements.'},
-    {n:7,title:'MISE EN SERVICE ET TRANSFERT DES ABONNES',
+    {n:6,title:'MISE EN SERVICE ET TRANSFERT DES ABONNES',
      detail:'Mise en service de la conduite neuve et transfert des abonnes depuis l\'ancien reseau, sans interruption de l\'alimentation AEP.',
      p:pSv,info:tSv>0?tSv+' abonnes transferes':'En attente',
      reco:tSv>0?'Coordonner avec l\'exploitation. Informer les abonnes 48h avant chaque operation.':'Etablir le planning de transfert par troncon et coordonner avec les services d\'exploitation.'},
@@ -4552,7 +4548,7 @@ function addRecommendationsPage(doc, hdr_fn, ftr_fn, pW, pH, B, G, O, DARK, LB, 
   // La ligne "Essais techniques" (index 2) recoit une hauteur superieure pour loger 3 mini-barres
   // (Pression / Compactage / Sterilisation) ; les 6 autres lignes se partagent le reste a egalite.
   const essaisRowRatio = 1.9;
-  const rowUnit = totalAvail / (6 + essaisRowRatio);
+  const rowUnit = totalAvail / (5 + essaisRowRatio);
   const rowHeights = arts.map((art,i)=> i===2 ? rowUnit*essaisRowRatio : rowUnit);
 
   // Table header
