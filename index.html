@@ -1046,7 +1046,7 @@ function clearAllPhotos(){
 // ════════════════════════════ IMPORT EXCEL ════════════════════════════
 function importPreviousExcel(event){
   const file=event.target.files[0];if(!file)return;
-  if(records.length>0){if(!confirm("Avertissement : "+records.length+" enregistrement(s) seront remplacés. Continuer ?")){ event.target.value='';return;}}
+  if(records.length>0){if(!confirm("Avertissement : "+records.length+" enregistrement(s) et les données Budget seront remplacés. Continuer ?")){ event.target.value='';return;}}
   const reader=new FileReader();
   reader.onload=function(e){
     try{
@@ -1069,6 +1069,25 @@ function importPreviousExcel(event){
       if(!jd.length){showToast("Fichier vide ou format incorrect","error");event.target.value='';return;}
       records=jd.map((row,i)=>parseRow(row,i));
       loadedFileName=file.name;
+      // Import budget entries (décomptes) tied to this project's Excel file, replacing whatever was in localStorage
+      const budgetSheet=wb.SheetNames.find(s=>s.toLowerCase().includes('budget'));
+      let importedBudget=[];
+      if(budgetSheet){
+        const bd=XLSX.utils.sheet_to_json(wb.Sheets[budgetSheet]);
+        importedBudget=bd
+          .filter(row=>row['Date']&&(row['Phase']==='Réseau'||row['Phase']==='Branchements'))
+          .map((row,i)=>({
+            id:'bud_imp_'+Date.now()+'_'+i,
+            commande:row['N° Commande']||row['Commande']||'',
+            phase:row['Phase']||'',
+            date:row['Date']||'',
+            valeur:parseFloat(row['Valeur (DH)']??row['Valeur']??0)||0,
+            notes:row['Observations']||row['Notes']||'RAS',
+            saisiePar:row['Saisie par']||''
+          }));
+      }
+      budgetEntries=importedBudget;
+      localStorage.setItem('water_project_budget',JSON.stringify(budgetEntries));
       if(jd[0]&&jd[0]['Projet']){
         document.getElementById('global-project-name').value=jd[0]['Projet'];
         localStorage.setItem('water_global_project_name',jd[0]['Projet']);
@@ -1082,7 +1101,7 @@ function importPreviousExcel(event){
       }
       capturedPhotos=[];localStorage.removeItem('water_project_photos');renderPhotosGallery();
       localStorage.setItem('water_project_records',JSON.stringify(records));
-      renderTable();calculateStatistics();renderProgressBars();
+      renderTable();calculateStatistics();renderProgressBars();renderBudgetTable();
       const s=document.getElementById('import-status-msg');
       s.innerText='✅ '+jd.length+' enregistrements importés depuis "'+file.name+'"';
       s.className="text-[11px] font-bold mt-1.5 block";s.style.color='var(--srm-green-dark)';
@@ -1131,7 +1150,18 @@ function getDailyTotal(dateStr){
 
 // ════ Série journalière cumulée par catégorie (pour graphique PDF) ════
 function getDailyCumulativeSeries(recs){
-  const dates = [...new Set(recs.map(r=>r.dateStr).filter(Boolean))].sort();
+  const rawDates = [...new Set(recs.map(r=>r.dateStr).filter(Boolean))].sort();
+  if(!rawDates.length) return {dates:[], series:[]};
+  // Plage continue : du premier jour d'activité jusqu'à aujourd'hui (ou au dernier jour enregistré si postérieur),
+  // afin d'inclure aussi bien les jours avec production que les jours sans aucune activité.
+  const start = new Date(rawDates[0]+'T00:00:00');
+  const lastRec = new Date(rawDates[rawDates.length-1]+'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const end = lastRec > today ? lastRec : today;
+  const dates = [];
+  for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+    dates.push(d.toISOString().split('T')[0]);
+  }
   let cR=0,cB=0,cRem=0,cRac=0;
   const series = dates.map(d=>{
     const dr = recs.filter(r=>r.dateStr===d);
@@ -1325,9 +1355,11 @@ function buildWorkbook(){
     'N° Commande':b.commande,
     'Phase':b.phase,
     'Date':b.date,
-    'Valeur (DH)':b.valeur
+    'Valeur (DH)':b.valeur,
+    'Observations':b.notes||'RAS',
+    'Saisie par':b.saisiePar||''
   }));
-  const wsBudget=XLSX.utils.json_to_sheet(budgetRows.length?budgetRows:[{'N° Commande':'','Phase':'','Date':'','Valeur (DH)':''}]);
+  const wsBudget=XLSX.utils.json_to_sheet(budgetRows.length?budgetRows:[{'N° Commande':'','Phase':'','Date':'','Valeur (DH)':'','Observations':'','Saisie par':''}]);
   XLSX.utils.sheet_add_aoa(wsBudget,[
     [],[],
     ["════ SYNTHÈSE BUDGET ════"],
