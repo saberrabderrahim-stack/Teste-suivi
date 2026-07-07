@@ -211,12 +211,12 @@ input,select,textarea { font-size:16px!important; font-family:'Cairo',sans-serif
           <i class="fa-solid fa-pipe"></i> Linéaires Posés par Diamètre (Réseau Principal)
         </p>
         <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
-          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 75</span><span id="stat-dn75" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span></div>
-          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 90</span><span id="stat-dn90" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span></div>
-          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 110</span><span id="stat-dn110" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span></div>
-          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 160</span><span id="stat-dn160" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span></div>
-          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 225</span><span id="stat-dn225" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span></div>
-          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 315</span><span id="stat-dn315" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span></div>
+          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 75</span><span id="stat-dn75" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span><div id="stat-dn75-cost" class="text-[8px] font-semibold mt-0.5" style="color:#16a34a"></div></div>
+          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 90</span><span id="stat-dn90" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span><div id="stat-dn90-cost" class="text-[8px] font-semibold mt-0.5" style="color:#16a34a"></div></div>
+          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 110</span><span id="stat-dn110" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span><div id="stat-dn110-cost" class="text-[8px] font-semibold mt-0.5" style="color:#16a34a"></div></div>
+          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 160</span><span id="stat-dn160" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span><div id="stat-dn160-cost" class="text-[8px] font-semibold mt-0.5" style="color:#16a34a"></div></div>
+          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 225</span><span id="stat-dn225" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span><div id="stat-dn225-cost" class="text-[8px] font-semibold mt-0.5" style="color:#16a34a"></div></div>
+          <div class="stat-card stat-card-blue"><span class="text-[9px] font-bold block mb-1" style="color:var(--srm-blue)">DN 315</span><span id="stat-dn315" class="text-base font-black" style="color:var(--srm-blue-dark)">0.00</span><span class="text-[9px] text-gray-500"> m</span><div id="stat-dn315-cost" class="text-[8px] font-semibold mt-0.5" style="color:#16a34a"></div></div>
         </div>
       </div>
 
@@ -2214,8 +2214,27 @@ function calculateStatistics(){
   document.getElementById('stat-rc200').innerText=rc20;document.getElementById('stat-rc300').innerText=rc30;
   document.getElementById('stat-total-day').innerText=day.toFixed(2);document.getElementById('stat-total-month').innerText=mon.toFixed(2);
 }
+// ════ Coût estimé au mètre par diamètre (DN), calculé à partir du Budget Réseau consommé ÷ linéaire total posé ════
+function updateDnCosts(c){
+  c = c || getAggregatedCumuls();
+  const totalLinear = Object.values(c.reseau).reduce((a,b)=>a+b,0);
+  const fin = computeBudgetAnalysis();
+  const unitPrice = totalLinear>0 ? (fin.consReseau/totalLinear) : 0;
+  ['75','90','110','160','225','315'].forEach(d=>{
+    const el = document.getElementById('stat-dn'+d+'-cost');
+    if(!el) return;
+    const len = c.reseau[d]||0;
+    if(unitPrice>0 && len>0){
+      const cost = unitPrice*len;
+      el.innerText = '≈ '+cost.toLocaleString('fr-FR',{maximumFractionDigits:0})+' DH ('+unitPrice.toFixed(2)+' DH/m)';
+    } else {
+      el.innerText = '';
+    }
+  });
+}
 function renderProgressBars(){
   const c=getAggregatedCumuls();
+  updateDnCosts(c);
   const totalLinear=Object.values(c.reseau).reduce((a,b)=>a+b,0);
   const totalBranch=c.branch.DN32+c.branch.DN50;
   const totalRemise=Object.values(c.remise).reduce((a,b)=>a+b,0);
